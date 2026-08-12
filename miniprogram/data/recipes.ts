@@ -134,4 +134,78 @@ export const seedRecipes: Recipe[] = [
     ],
     cautions: ['蛋液下锅后不要立刻猛烈搅动。'], unlockRule: { type: 'starter' }, tags: ['汤', '清淡'],
   },
+  {
+    id: 'sour_potato_shreds', name: '酸香土豆丝', description: '脆爽开胃的家常快炒。', difficulty: 1, durationMin: 15, servings: 2,
+    ingredients: [
+      { ingredientId: 'potato', amount: 350, unit: 'g' }, { ingredientId: 'vinegar', amount: 12, unit: 'ml' },
+      { ingredientId: 'cooking_oil', amount: 12, unit: 'ml' }, { ingredientId: 'salt', amount: 2, unit: 'g' },
+    ],
+    steps: [
+      { order: 1, content: '土豆切细丝后用清水洗去表面淀粉。' }, { order: 2, content: '热锅下油，土豆丝大火快速翻炒。' },
+      { order: 3, content: '沿锅边加入醋和盐，翻匀后立即出锅。' },
+    ],
+    cautions: ['土豆丝请确保炒熟。'], unlockRule: { type: 'starter' }, tags: ['快手', '蔬菜', '酸香'],
+  },
+  {
+    id: 'hand_torn_cabbage', name: '手撕包菜', description: '香脆下饭，十几分钟上桌。', difficulty: 1, durationMin: 15, servings: 2,
+    ingredients: [
+      { ingredientId: 'cabbage', amount: 400, unit: 'g' }, { ingredientId: 'garlic', amount: 10, unit: 'g' },
+      { ingredientId: 'soy_sauce', amount: 10, unit: 'ml' }, { ingredientId: 'cooking_oil', amount: 12, unit: 'ml' },
+    ],
+    steps: [
+      { order: 1, content: '圆白菜洗净沥干，用手撕成小片。' }, { order: 2, content: '蒜末入油锅炒香。' },
+      { order: 3, content: '加入圆白菜大火翻炒，淋生抽后出锅。' },
+    ],
+    cautions: ['洗净后尽量沥干，避免热油飞溅。'], unlockRule: { type: 'inventory', ingredientIds: ['cabbage', 'garlic'] }, tags: ['快炒', '下饭', '蔬菜'],
+  },
+  {
+    id: 'mushroom_spinach', name: '蘑菇炒菠菜', description: '清鲜柔软的双蔬组合。', difficulty: 1, durationMin: 15, servings: 2,
+    ingredients: [
+      { ingredientId: 'mushroom', amount: 180, unit: 'g' }, { ingredientId: 'spinach', amount: 220, unit: 'g' },
+      { ingredientId: 'garlic', amount: 8, unit: 'g' }, { ingredientId: 'cooking_oil', amount: 10, unit: 'ml' },
+      { ingredientId: 'salt', amount: 2, unit: 'g' },
+    ],
+    steps: [
+      { order: 1, content: '蘑菇切片，菠菜洗净切段。' }, { order: 2, content: '蒜末和蘑菇炒至变软。' },
+      { order: 3, content: '加入菠菜大火翻炒至熟，加盐调味。' },
+    ],
+    cautions: ['蘑菇与菠菜均需充分加热。'], unlockRule: { type: 'inventory', ingredientIds: ['mushroom', 'spinach'] }, tags: ['清淡', '蔬菜'],
+  },
+  {
+    id: 'egg_fried_rice', name: '小葱鸡蛋焖饭', description: '大米、鸡蛋和小葱组成的简单主食。', difficulty: 1, durationMin: 35, servings: 2,
+    ingredients: [
+      { ingredientId: 'rice', amount: 300, unit: 'g' }, { ingredientId: 'egg', amount: 2, unit: 'piece' },
+      { ingredientId: 'scallion', amount: 15, unit: 'g' }, { ingredientId: 'cooking_oil', amount: 12, unit: 'ml' },
+      { ingredientId: 'soy_sauce', amount: 8, unit: 'ml', optional: true },
+    ],
+    steps: [
+      { order: 1, content: '大米淘洗后按日常水量开始焖煮。' }, { order: 2, content: '鸡蛋炒至刚凝固，小葱切碎。' },
+      { order: 3, content: '米饭即将熟时铺入鸡蛋，焖熟后加入小葱和可选生抽拌匀。' },
+    ],
+    cautions: ['请按所用炊具说明控制水量和加热时间。'], unlockRule: { type: 'prerequisite', recipeIds: ['tomato_scrambled_egg'] }, tags: ['主食', '焖饭', '鸡蛋'],
+  },
+  {
+    id: 'onion_omelette', name: '洋葱煎蛋', description: '甜香柔软，早餐晚餐都合适。', difficulty: 1, durationMin: 12, servings: 2,
+    ingredients: [
+      { ingredientId: 'onion', amount: 150, unit: 'g' }, { ingredientId: 'egg', amount: 3, unit: 'piece' },
+      { ingredientId: 'cooking_oil', amount: 10, unit: 'ml' }, { ingredientId: 'salt', amount: 2, unit: 'g' },
+    ],
+    steps: [
+      { order: 1, content: '洋葱切细丝，鸡蛋加盐打散。' }, { order: 2, content: '洋葱炒软后与蛋液混合。' },
+      { order: 3, content: '倒回锅中，两面煎至完全凝固。' },
+    ],
+    cautions: ['蛋液中心需完全凝固。'], unlockRule: { type: 'starter' }, tags: ['早餐', '快手', '鸡蛋'],
+  },
+  {
+    id: 'garlic_shrimp', name: '蒜香虾仁', description: '蒜香明亮、口感弹嫩的快手菜。', difficulty: 2, durationMin: 15, servings: 2,
+    ingredients: [
+      { ingredientId: 'shrimp', amount: 220, unit: 'g' }, { ingredientId: 'garlic', amount: 15, unit: 'g' },
+      { ingredientId: 'cooking_oil', amount: 10, unit: 'ml' }, { ingredientId: 'salt', amount: 2, unit: 'g' },
+    ],
+    steps: [
+      { order: 1, content: '虾仁处理干净并沥干，蒜切末。' }, { order: 2, content: '蒜末小火炒香，加入虾仁。' },
+      { order: 3, content: '翻炒至虾仁完全变色熟透，加盐出锅。' },
+    ],
+    cautions: ['虾仁必须彻底熟透。'], unlockRule: { type: 'prerequisite', recipeIds: ['shrimp_egg'] }, tags: ['海鲜', '快手', '蒜香'],
+  },
 ];

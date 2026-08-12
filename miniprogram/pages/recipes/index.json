@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "食谱库", "usingComponents": { "empty-state": "/components/empty-state/index" } }
+{ "navigationBarTitleText": "食谱库", "usingComponents": { "empty-state": "../../components/empty-state/index" } }

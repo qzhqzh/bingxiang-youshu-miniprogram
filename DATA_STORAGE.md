@@ -29,11 +29,14 @@
 | `pantry:v1:shoppingList` | 购物清单 |
 | `pantry:v1:settings` | 新鲜度提醒天数、默认保存方式等偏好 |
 | `pantry:v1:meta` | 本地数据版本与初始化信息 |
+| `pantry:v1:importBackup` | 最近一次 JSON 导入前的完整本地备份；不包含在普通业务快照中 |
 
 `miniprogram/data/ingredients.ts` 和 `miniprogram/data/recipes.ts` 是随代码发布的基础 seed；首次启动时会由 Repository 写入本地 Storage。用户自己的库存、记录和设置不会写回源码或 Git 仓库。
 
 ## 用户如何导出或删除
 
 - “我的 → 导出 JSON”会读取当前完整快照并复制到系统剪贴板；后续保存位置由用户决定。
-- “我的 → 清空全部数据”会删除上述 `pantry:v1:*` key，再重新初始化基础食材和食谱。
+- “我的 → 导入 JSON”会先校验结构、ID 和引用关系，确认后把当前快照保存为 `importBackup` 再替换数据。
+- “我的 → 恢复导入前数据”会恢复最近备份，同时把恢复前的数据保存成新的回退备份。
+- “我的 → 清空全部数据”会删除上述 `pantry:v1:*` key 和导入备份，再重新初始化基础食材和食谱。
 - 当前没有自动备份。正式推广前若要支持换机和家庭共享，应新增登录、云同步、隐私说明、数据迁移和冲突处理，不能只把本地 key 直接上传。详细待开发方案见 [V2_MULTI_USER_SYNC_DESIGN.md](./V2_MULTI_USER_SYNC_DESIGN.md)。

@@ -1,13 +1,14 @@
 <view class="page">
   <view class="page-title">食谱库</view><view class="page-subtitle">库存齐全不等于已经掌握；可解锁食谱需要你主动解锁。</view>
+  <view class="search-box"><text>⌕</text><input value="{{keyword}}" placeholder="搜索菜名、食材或标签" bindinput="onSearch"/><text wx:if="{{keyword}}" class="clear-search" bindtap="clearSearch">×</text></view>
   <scroll-view scroll-x class="filters"><view class="chip-row"><view wx:for="{{filters}}" wx:key="id" class="chip {{filter===item.id?'active':''}}" data-id="{{item.id}}" bindtap="setFilter">{{item.name}}</view></view></scroll-view>
   <view wx:if="{{loading}}" class="card loading-card">正在匹配库存…</view><view wx:elif="{{error}}" class="error-card">{{error}}</view>
   <view wx:elif="{{recipes.length}}" class="recipe-list">
     <view class="recipe-card card" wx:for="{{recipes}}" wx:key="id" data-id="{{item.id}}" bindtap="open">
-      <view class="card-head"><view class="recipe-icon">🍳</view><view class="recipe-main"><view class="name-row"><text class="name">{{item.name}}</text><text class="status {{item.status}}">{{item.statusLabel}}</text></view><view class="description">{{item.description}}</view></view></view>
+      <view class="card-head"><view class="recipe-icon">🍳</view><view class="recipe-main"><view class="name-row"><text class="name">{{item.name}}</text><view class="name-actions"><text class="status {{item.status}}">{{item.statusLabel}}</text><button class="favorite {{item.favorite?'active':''}}" data-id="{{item.id}}" catchtap="toggleFavorite">{{item.favorite?'★':'☆'}}</button></view></view><view class="description">{{item.description}}</view></view></view>
       <view class="metrics"><text>{{item.durationMin}} 分钟</text><text>难度 {{item.difficultyText}}</text><text>库存 {{item.matchedCount}}/{{item.requiredCount}}</text></view>
       <view class="match-track"><view class="match-fill" style="width:{{item.availabilityPercent}}%"></view></view><view class="footer"><text class="missing {{item.canCook?'ready':''}}">{{item.missingText}}</text><text class="arrow">›</text></view>
     </view>
   </view>
-  <empty-state wx:else title="这个分类还没有食谱" description="切换其他状态看看。" image="/assets/png/recipe.png"/>
+  <empty-state wx:else title="没有找到食谱" description="换个关键词或筛选条件试试。" image="/assets/png/recipe.png"/>
 </view>

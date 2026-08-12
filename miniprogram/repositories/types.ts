@@ -32,6 +32,8 @@ export interface AppRepository {
   saveShoppingList(value: ShoppingItem[]): void;
   saveSettings(value: AppSettings): void;
   saveMeta(value: AppMeta): void;
+  replace(snapshot: AppSnapshot, createBackup?: boolean): void;
+  getImportBackup(): string | null;
   exportJson(): string;
   clear(): void;
 }

@@ -1,1 +1,1 @@
-{ "navigationBarTitleText": "冰箱有数", "usingComponents": { "freshness-badge": "/components/freshness-badge/index", "empty-state": "/components/empty-state/index" } }
+{ "navigationBarTitleText": "冰箱有数", "usingComponents": { "freshness-badge": "../../components/freshness-badge/index", "empty-state": "../../components/empty-state/index" } }

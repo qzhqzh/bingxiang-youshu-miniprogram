@@ -13,6 +13,7 @@ import type { AppRepository, AppSnapshot } from '../miniprogram/repositories/typ
 import { AppService } from '../miniprogram/services/app.service';
 
 class MemoryRepository implements AppRepository {
+  backup: string | null = null;
   constructor(public value: AppSnapshot) {}
   isInitialized(): boolean { return true; }
   initialize(value: AppSnapshot): void { this.value = value; }
@@ -25,6 +26,11 @@ class MemoryRepository implements AppRepository {
   saveShoppingList(value: ShoppingItem[]): void { this.value.shoppingList = value; }
   saveSettings(value: AppSettings): void { this.value.settings = value; }
   saveMeta(value: AppSnapshot['meta']): void { this.value.meta = value; }
+  replace(value: AppSnapshot, createBackup = true): void {
+    if (createBackup) this.backup = JSON.stringify(this.value);
+    this.value = value;
+  }
+  getImportBackup(): string | null { return this.backup; }
   exportJson(): string { return JSON.stringify(this.value); }
   clear(): void {}
 }
@@ -106,5 +112,76 @@ describe('10. 购物清单 → 购入 → 仓库闭环', () => {
     assert.equal(saved.batches.find((item) => item.ingredientId === tomato.id)?.quantity, 300);
     assert.equal(saved.shoppingList.find((item) => item.id === shoppingItem.id)?.checked, true);
     assert.ok(saved.meta.purchasedIngredientIds.includes(tomato.id));
+  });
+});
+
+describe('12. JSON 导入、校验与回退', () => {
+  it('导入前保存备份，导入后可以恢复原数据', () => {
+    const repository = new MemoryRepository(snapshot([starterRecipe()]));
+    const service = new AppService(repository);
+    const imported = snapshot([starterRecipe()], [{
+      id: 'imported_batch', ingredientId: egg.id, quantity: 6, unit: 'piece', purchasedAt: '2026-08-12',
+      storageMode: 'chilled', status: 'active', createdAt: 2, updatedAt: 2,
+    }]);
+
+    const preview = service.previewImport(JSON.stringify(imported));
+    assert.equal(preview.activeBatchCount, 1);
+    service.importJson(JSON.stringify(imported));
+    assert.equal(service.snapshot().batches[0].quantity, 6);
+    assert.ok(repository.getImportBackup());
+
+    service.restoreImportBackup();
+    assert.equal(service.snapshot().batches.length, 0);
+  });
+
+  it('拒绝损坏 JSON 和未知食材引用，不覆盖当前数据', () => {
+    const repository = new MemoryRepository(snapshot([starterRecipe()]));
+    const service = new AppService(repository);
+    assert.throws(() => service.importJson('{broken'), /JSON 格式/);
+    const invalid = snapshot([starterRecipe()], [{
+      id: 'bad_batch', ingredientId: 'missing', quantity: 1, unit: 'piece', purchasedAt: '2026-08-12',
+      storageMode: 'chilled', status: 'active', createdAt: 1, updatedAt: 1,
+    }]);
+    assert.throws(() => service.importJson(JSON.stringify(invalid)), /未知食材/);
+    assert.equal(repository.value.batches.length, 0);
+  });
+});
+
+describe('13. 食谱搜索、库存筛选与收藏', () => {
+  it('按菜名/食材搜索，收藏后可以独立筛选', () => {
+    const eggRecipe = starterRecipe('egg_recipe');
+    const tomatoRecipe: Recipe = {
+      ...starterRecipe('tomato_recipe'), name: '番茄小菜', tags: ['酸甜'],
+      ingredients: [{ ingredientId: tomato.id, amount: 100, unit: 'g' }],
+    };
+    const stock: PantryBatch[] = [{
+      id: 'egg_stock', ingredientId: egg.id, quantity: 3, unit: 'piece', purchasedAt: '2026-08-12',
+      storageMode: 'chilled', status: 'active', createdAt: 1, updatedAt: 1,
+    }];
+    const service = new AppService(new MemoryRepository(snapshot([eggRecipe, tomatoRecipe], stock)));
+
+    assert.deepEqual(service.recipes('all', '番茄小菜').map((item) => item.id), ['tomato_recipe']);
+    assert.deepEqual(service.recipes('all', '测试鸡蛋').map((item) => item.id), ['egg_recipe']);
+    assert.deepEqual(service.recipes('ready').map((item) => item.id), ['egg_recipe']);
+    assert.equal(service.toggleRecipeFavorite('tomato_recipe'), true);
+    assert.deepEqual(service.recipes('favorite').map((item) => item.id), ['tomato_recipe']);
+    assert.equal(service.toggleRecipeFavorite('tomato_recipe'), false);
+    assert.equal(service.recipes('favorite').length, 0);
+  });
+});
+
+describe('14. 快捷购入建议', () => {
+  it('最近购入保留上次数量和保存方式，并提供常用数量', () => {
+    const stock: PantryBatch[] = [{
+      id: 'recent_batch', ingredientId: tomato.id, quantity: 500, unit: 'g', purchasedAt: '2026-08-12',
+      storageMode: 'chilled', status: 'active', createdAt: 10, updatedAt: 10,
+    }];
+    const service = new AppService(new MemoryRepository(snapshot([starterRecipe()], stock)));
+    const options = service.purchaseOptions();
+    assert.equal(options.recent[0].id, tomato.id);
+    assert.equal(options.recent[0].lastQuantity, 500);
+    assert.equal(options.recent[0].lastStorageMode, 'chilled');
+    assert.deepEqual(service.quickQuantities('g'), [100, 250, 500, 1000]);
+    assert.deepEqual(service.quickQuantities('piece'), [1, 2, 6, 10, 12]);
   });
 });

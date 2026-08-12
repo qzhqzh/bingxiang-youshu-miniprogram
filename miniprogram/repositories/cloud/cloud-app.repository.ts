@@ -14,6 +14,8 @@ export class CloudAppRepository implements CloudRepository {
   saveShoppingList(_value: ShoppingItem[]): void { this.unavailable(); }
   saveSettings(_value: AppSettings): void { this.unavailable(); }
   saveMeta(_value: AppSnapshot['meta']): void { this.unavailable(); }
+  replace(_snapshot: AppSnapshot, _createBackup?: boolean): void { this.unavailable(); }
+  getImportBackup(): string | null { return this.unavailable(); }
   exportJson(): string { return this.unavailable(); }
   clear(): void { this.unavailable(); }
 }

@@ -108,6 +108,7 @@ export interface ShoppingItem {
 export interface AppSettings {
   freshnessReminderDays: number;
   defaultStorageMode: StorageMode;
+  favoriteRecipeIds?: string[];
 }
 
 export interface AppMeta {

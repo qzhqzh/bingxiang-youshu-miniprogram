@@ -28,6 +28,7 @@ import { seedIngredients } from '../data/ingredients';
 import { seedRecipes } from '../data/recipes';
 import type { AppRepository, AppSnapshot } from '../repositories/types';
 import { LocalAppRepository } from '../repositories/local/local-app.repository';
+import { validateImportJson, type ImportSummary } from './data-transfer';
 
 const CURRENT_DATA_VERSION = 2;
 
@@ -92,7 +93,7 @@ export class AppService {
       progress,
       cookingRecords: [],
       shoppingList: [],
-      settings: { freshnessReminderDays: 3, defaultStorageMode: 'chilled' },
+      settings: { freshnessReminderDays: 3, defaultStorageMode: 'chilled', favoriteRecipeIds: [] },
       meta: {
         version: CURRENT_DATA_VERSION,
         initializedAt: now,
@@ -114,13 +115,17 @@ export class AppService {
       initializedAt: snapshot.meta?.initializedAt ?? Date.now(),
       purchasedIngredientIds,
     };
-    const settings = snapshot.settings ?? { freshnessReminderDays: 3, defaultStorageMode: 'chilled' as const };
+    const settings: AppSettings = {
+      freshnessReminderDays: snapshot.settings?.freshnessReminderDays ?? 3,
+      defaultStorageMode: snapshot.settings?.defaultStorageMode ?? 'chilled',
+      favoriteRecipeIds: snapshot.settings?.favoriteRecipeIds ?? [],
+    };
     const progress = refreshRecipeProgress(recipes, snapshot.progress ?? [], purchasedIngredientIds);
     if (JSON.stringify(ingredients) !== JSON.stringify(snapshot.ingredients)) this.repository.saveIngredients(ingredients);
     if (JSON.stringify(recipes) !== JSON.stringify(snapshot.recipes)) this.repository.saveRecipes(recipes);
     if (JSON.stringify(progress) !== JSON.stringify(snapshot.progress)) this.repository.saveProgress(progress);
     if (JSON.stringify(meta) !== JSON.stringify(snapshot.meta)) this.repository.saveMeta(meta);
-    if (!snapshot.settings) this.repository.saveSettings(settings);
+    if (JSON.stringify(settings) !== JSON.stringify(snapshot.settings)) this.repository.saveSettings(settings);
     return {
       ...snapshot,
       ingredients,
@@ -185,13 +190,31 @@ export class AppService {
 
   purchaseOptions() {
     const snapshot = this.snapshot();
-    const recentIds = Array.from(new Set(snapshot.batches.slice().sort((a, b) => b.createdAt - a.createdAt).map((item) => item.ingredientId))).slice(0, 6);
+    const orderedBatches = snapshot.batches.slice().sort((a, b) => b.createdAt - a.createdAt);
+    const recentIds = Array.from(new Set(orderedBatches.map((item) => item.ingredientId))).slice(0, 6);
     return {
       ingredients: snapshot.ingredients.map((item) => ({ ...item, unitLabel: unitText[item.defaultUnit] })),
-      recent: recentIds.map((ingredientId) => ingredientById(snapshot, ingredientId)),
+      recent: recentIds.map((ingredientId) => {
+        const ingredient = ingredientById(snapshot, ingredientId);
+        const lastBatch = orderedBatches.find((item) => item.ingredientId === ingredientId)!;
+        return {
+          ...ingredient,
+          lastQuantity: lastBatch.quantity,
+          lastStorageMode: lastBatch.storageMode,
+          lastShelfLifeDaysOverride: lastBatch.shelfLifeDaysOverride ?? '',
+          quantityText: `${formatQuantity(lastBatch.quantity)}${unitText[lastBatch.unit] ?? lastBatch.unit}`,
+        };
+      }),
       settings: snapshot.settings,
       today: toDateOnly(Date.now()),
     };
+  }
+
+  quickQuantities(unit: string): number[] {
+    if (unit === 'piece') return [1, 2, 6, 10, 12];
+    if (unit === 'g' || unit === 'ml') return [100, 250, 500, 1000];
+    if (unit === 'kg' || unit === 'L') return [0.5, 1, 2, 5];
+    return [1, 2, 3, 5];
   }
 
   purchase(input: PurchaseInput): void {
@@ -238,9 +261,27 @@ export class AppService {
     this.repository.saveBatches(snapshot.batches.map((batch) => batch.id === batchId ? { ...batch, status: 'discarded', updatedAt: now } : batch));
   }
 
-  recipes(filter = 'all') {
+  recipes(filter = 'all', keyword = '') {
     const cards = this.recipeCards(this.snapshot());
-    return (filter === 'all' ? cards : cards.filter((item) => item.status === filter)).sort((a, b) => a.rank - b.rank || b.matchedCount - a.matchedCount);
+    const normalizedKeyword = keyword.trim().toLocaleLowerCase();
+    return cards
+      .filter((item) => {
+        if (filter === 'favorite') return item.favorite;
+        if (filter === 'ready') return item.canCook;
+        return filter === 'all' || item.status === filter;
+      })
+      .filter((item) => !normalizedKeyword || item.searchText.includes(normalizedKeyword))
+      .sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.rank - b.rank || b.matchedCount - a.matchedCount);
+  }
+
+  toggleRecipeFavorite(recipeId: string): boolean {
+    const snapshot = this.snapshot();
+    recipeById(snapshot, recipeId);
+    const current = snapshot.settings.favoriteRecipeIds ?? [];
+    const favorite = !current.includes(recipeId);
+    const favoriteRecipeIds = favorite ? [...current, recipeId] : current.filter((id) => id !== recipeId);
+    this.repository.saveSettings({ ...snapshot.settings, favoriteRecipeIds });
+    return favorite;
   }
 
   recipeDetail(recipeId: string) {
@@ -369,11 +410,27 @@ export class AppService {
       monthlyCookCount: snapshot.cookingRecords.filter((item) => item.cookedAt >= monthStart).length,
       settings: snapshot.settings,
       recordCount: snapshot.cookingRecords.length,
+      hasImportBackup: Boolean(this.repository.getImportBackup()),
     };
   }
 
-  updateSettings(settings: AppSettings): void { this.repository.saveSettings(settings); }
+  updateSettings(settings: AppSettings): void { this.repository.saveSettings({ ...settings, favoriteRecipeIds: settings.favoriteRecipeIds ?? [] }); }
   exportJson(): string { return this.repository.exportJson(); }
+  previewImport(json: string): ImportSummary { return validateImportJson(json).summary; }
+  importJson(json: string): ImportSummary {
+    const validated = validateImportJson(json);
+    this.repository.replace(validated.snapshot, true);
+    this.snapshot();
+    return validated.summary;
+  }
+  restoreImportBackup(): ImportSummary {
+    const backup = this.repository.getImportBackup();
+    if (!backup) throw new Error('没有可恢复的导入前备份');
+    const validated = validateImportJson(backup);
+    this.repository.replace(validated.snapshot, true);
+    this.snapshot();
+    return validated.summary;
+  }
   reset(): void { this.repository.clear(); this.bootstrap(); }
 
   private summaryView(snapshot: AppSnapshot, summary: ReturnType<typeof aggregateInventory>[number]) {
@@ -392,6 +449,7 @@ export class AppService {
   }
 
   private recipeCards(snapshot: AppSnapshot) {
+    const favorites = new Set(snapshot.settings.favoriteRecipeIds ?? []);
     return snapshot.recipes.map((recipe) => {
       const progress = snapshot.progress.find((item) => item.recipeId === recipe.id)!;
       const availability = calculateRecipeAvailability(recipe, snapshot.batches);
@@ -401,11 +459,13 @@ export class AppService {
         difficulty: recipe.difficulty, difficultyText: '●'.repeat(recipe.difficulty), status: progress.status,
         statusLabel: statusText[progress.status], matchedCount: availability.matchedCount, requiredCount: availability.requiredCount,
         availabilityPercent: Math.round(availability.availability * 100), canCook: availability.canCook,
+        favorite: favorites.has(recipe.id),
         missingCount: availability.missing.length, missingText: missingNames.length ? `缺 ${missingNames.join('、')}` : '食材齐全',
         actionText: availability.canCook
           ? progress.status === 'mastered' ? '可直接做' : progress.status === 'unlockable' ? '可解锁' : '待解锁'
           : `缺 ${availability.missing.length} 项`,
         rank: recipeRank(progress.status, availability.missing.length),
+        searchText: [recipe.name, recipe.description, ...recipe.tags, ...recipe.ingredients.map((item) => ingredientById(snapshot, item.ingredientId).name)].join(' ').toLocaleLowerCase(),
       };
     });
   }

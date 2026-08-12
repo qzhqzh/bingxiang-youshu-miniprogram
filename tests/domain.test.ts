@@ -166,7 +166,7 @@ describe('11. seed 食材与食谱完整性', () => {
     const recipeIds = new Set(seedRecipes.map((item) => item.id));
     assert.equal(seedIngredients.length, 30);
     assert.equal(ingredientIds.size, seedIngredients.length);
-    assert.equal(seedRecipes.length, 10);
+    assert.equal(seedRecipes.length, 16);
     assert.equal(recipeIds.size, seedRecipes.length);
     seedRecipes.forEach((item) => {
       item.ingredients.forEach((ingredient) => assert.ok(ingredientIds.has(ingredient.ingredientId), `${item.id} 引用了未知食材`));
