@@ -1,0 +1,14 @@
+.member-list { display:flex; flex-direction:column; gap:18rpx; margin-top:30rpx; }
+.member-card { display:flex; align-items:center; gap:20rpx; padding:24rpx; }
+.avatar { display:flex; align-items:center; justify-content:center; width:72rpx; height:72rpx; flex:none; border-radius:24rpx; background:#E4EEE6; color:#24564A; font-size:28rpx; font-weight:700; }
+.member-main { flex:1; min-width:0; }
+.member-name { color:#24564A; font-size:28rpx; font-weight:700; }
+.member-name text { color:#6B756F; font-size:22rpx; font-weight:400; }
+.member-role { margin-top:7rpx; color:#7A756C; font-size:22rpx; }
+.member-actions { display:flex; flex-direction:column; align-items:flex-end; gap:10rpx; color:#3E806C; font-size:22rpx; }
+.invite-card { display:flex; flex-direction:column; gap:20rpx; margin-top:18rpx; padding:26rpx; color:#6B756F; font-size:23rpx; line-height:1.6; }
+.invite-card button { width:100%; margin:0; }
+.token-box { display:flex; flex-direction:column; gap:10rpx; padding:18rpx; border-radius:16rpx; background:#F2EEE6; word-break:break-all; }
+.token-box text:first-child { color:#24564A; font-weight:650; }
+.token-box text:last-child { font-size:21rpx; }
+.notice { margin-top:26rpx; padding:24rpx; border-radius:18rpx; background:#F1E9DC; color:#786D60; font-size:23rpx; line-height:1.6; }

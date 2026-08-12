@@ -297,7 +297,10 @@ export class V2Service {
     const preferences = this.preferencesFor(householdId, principal.user.id);
     return {
       household,
-      members: this.store.activeMembers(householdId),
+      members: this.store.activeMembers(householdId).map((member) => ({
+        ...member,
+        displayName: this.requireActiveUser(member.userId).displayName,
+      })),
       batches: [...this.store.batches.values()].filter((item) => item.householdId === householdId && !item.deletedAt),
       movements: [...this.store.movements.values()].filter((item) => item.householdId === householdId),
       shoppingItems: [...this.store.shoppingItems.values()].filter((item) => item.householdId === householdId && !item.deletedAt),

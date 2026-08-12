@@ -8,6 +8,9 @@ const required = [
   'server/openapi.yaml',
   'server/db/migrations/0001_v2_core.sql',
   'server/src/app.ts',
+  'server/src/api-service.ts',
+  'server/src/http-schema.ts',
+  'server/src/postgres/mutation-executor.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -30,4 +33,21 @@ assert.ok(sql.includes('CHECK (quantity >= 0)'), '库存表必须有非负约束
 assert.ok(sql.includes('household_one_active_owner_idx'), '缺少家庭唯一有效 owner 约束');
 assert.ok(sql.includes('PRIMARY KEY (user_id, mutation_id)'), '缺少 mutation 幂等唯一键');
 
-console.log('2.0 契约检查通过：OpenAPI 核心路由、租户表、库存约束、唯一 owner 与幂等键均存在。');
+const appSource = readFileSync(join(root, 'server/src/app.ts'), 'utf8');
+const httpSchema = readFileSync(join(root, 'server/src/http-schema.ts'), 'utf8');
+assert.ok(appSource.includes('removeAdditional: false'), 'API 必须拒绝额外字段，不能静默丢弃');
+assert.ok(appSource.includes("code: 'VALIDATION_ERROR'"), 'API 缺少统一运行时校验错误体');
+assert.ok(httpSchema.includes("commandSchema('CompleteCooking'"), '运行时契约缺少做菜命令');
+assert.ok(httpSchema.includes('maxLength: 2_000_000'), '迁移载荷缺少大小上限');
+
+const transactionSource = readFileSync(join(root, 'server/src/postgres/mutation-executor.ts'), 'utf8');
+for (const boundary of [
+  'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE',
+  'pg_advisory_xact_lock',
+  'FOR UPDATE',
+  'ROLLBACK',
+  'processed_mutations',
+  'household_sync_cursors',
+]) assert.ok(transactionSource.includes(boundary), `PostgreSQL 事务执行器缺少边界：${boundary}`);
+
+console.log('2.0 契约检查通过：OpenAPI、运行时 schema、租户表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');

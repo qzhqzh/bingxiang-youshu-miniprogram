@@ -6,6 +6,7 @@
 .status-dot.cloud { background:#3E806C; box-shadow:0 0 0 8rpx rgba(62,128,108,.12); }
 .status-row { display:flex; justify-content:space-between; gap:24rpx; padding:22rpx 0; border-top:1rpx solid #E7DFD2; color:#6B756F; font-size:24rpx; }
 .status-row text:last-child { color:#294D43; text-align:right; }
+.conflict-link:active { opacity:.68; }
 .notice { margin-top:20rpx; padding:22rpx 24rpx; border-radius:18rpx; background:#F1E9DC; color:#786D60; font-size:23rpx; line-height:1.6; }
 .action-grid { display:flex; flex-direction:column; gap:18rpx; }
 .guide { margin-top:18rpx; padding:8rpx 24rpx; }

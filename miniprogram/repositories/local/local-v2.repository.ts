@@ -129,6 +129,42 @@ export class LocalV2Repository {
     }));
   }
 
+  retryConflict(householdId: string, conflictId: string, baseVersion?: number): HouseholdEnvelope {
+    return this.mutateEnvelope(householdId, (current) => {
+      const conflict = current.conflicts.find((item) => item.id === conflictId);
+      if (!conflict) throw new Error('同步冲突不存在或已经处理');
+      if (conflict.type === 'MEMBERSHIP_CHANGED') throw new Error('你已不在这个家庭中，这条操作不能重试');
+      const queued = current.outbox.find((item) => item.command.mutationId === conflict.mutationId);
+      if (!queued) throw new Error('冲突对应的待同步操作不存在');
+      return {
+        ...current,
+        outbox: current.outbox.map((item) => {
+          if (item.command.mutationId !== conflict.mutationId) return item;
+          const { lastErrorCode: _lastErrorCode, ...retryable } = item;
+          return {
+            ...retryable,
+            command: baseVersion === undefined ? item.command : { ...item.command, baseVersion },
+            state: 'pending',
+            nextAttemptAt: this.now(),
+          };
+        }),
+        conflicts: current.conflicts.filter((item) => item.id !== conflictId),
+      };
+    });
+  }
+
+  cancelConflict(householdId: string, conflictId: string): HouseholdEnvelope {
+    return this.mutateEnvelope(householdId, (current) => {
+      const conflict = current.conflicts.find((item) => item.id === conflictId);
+      if (!conflict) throw new Error('同步冲突不存在或已经处理');
+      return {
+        ...current,
+        outbox: current.outbox.filter((item) => item.command.mutationId !== conflict.mutationId),
+        conflicts: current.conflicts.filter((item) => item.id !== conflictId),
+      };
+    });
+  }
+
   applyChanges(householdId: string, changes: SyncChange[], nextCursor: number, catalogVersion: number): HouseholdEnvelope {
     return this.mutateEnvelope(householdId, (current) => {
       if (nextCursor < current.cursor) throw new Error('同步游标不能倒退');

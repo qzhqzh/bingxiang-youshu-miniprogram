@@ -1,9 +1,25 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { LocalV2Repository, type StorageAdapter } from '../../miniprogram/repositories/local/local-v2.repository.js';
-import { RemoteApiError, type BootstrapResponse, type LoginResponse, type RemoteSyncGateway } from '../../miniprogram/services/cloud/remote-sync.gateway.js';
+import { CloudSyncService } from '../../miniprogram/services/cloud/cloud-sync.service.js';
+import {
+  RemoteApiError,
+  type BootstrapResponse,
+  type CloudAccountGateway,
+  type InvitationResponse,
+  type LoginResponse,
+  type RemoteSyncGateway,
+} from '../../miniprogram/services/cloud/remote-sync.gateway.js';
 import { SyncCoordinator } from '../../miniprogram/services/cloud/sync-coordinator.js';
-import type { MigrationSummary, PullPage, PushResult, SyncCommand } from '../../miniprogram/v2/models.js';
+import type {
+  CloudHousehold,
+  CloudHouseholdMember,
+  CloudHouseholdRole,
+  MigrationSummary,
+  PullPage,
+  PushResult,
+  SyncCommand,
+} from '../../miniprogram/v2/models.js';
 
 class MemoryStorage implements StorageAdapter {
   readonly values = new Map<string, unknown>();
@@ -24,8 +40,8 @@ class FakeGateway implements RemoteSyncGateway {
   pushError?: RemoteApiError;
   pullError?: RemoteApiError;
   bootstrapResult: BootstrapResponse = {
-    household: { id: 'home', version: 2 },
-    members: [{ userId: 'alice', version: 1 }],
+    household: { id: 'home', name: '我的冰箱', timezone: 'Asia/Shanghai', ownerUserId: 'alice', version: 2 },
+    members: [{ householdId: 'home', userId: 'alice', role: 'owner', status: 'active', joinedAt: 1, version: 1 }],
     batches: [{ id: 'batch-server', version: 3, quantity: 2 }],
     movements: [], shoppingItems: [], cookingRecords: [], recipeProgress: [],
     preferences: { userId: 'alice', version: 1 }, cursor: 22, catalogVersion: 3,
@@ -41,9 +57,62 @@ class FakeGateway implements RemoteSyncGateway {
     if (this.pullError) throw this.pullError;
     return this.pullPages.shift() ?? { changes: [], nextCursor: cursor, hasMore: false, catalogVersion: 1 };
   }
-  async bootstrap(): Promise<BootstrapResponse> { return this.bootstrapResult; }
+  async bootstrap(_accessToken?: string, _householdId?: string): Promise<BootstrapResponse> { return this.bootstrapResult; }
   async prepareMigration(): Promise<MigrationSummary> { throw new Error('not used'); }
   async commitMigration(): Promise<MigrationSummary> { throw new Error('not used'); }
+}
+
+function snapshot(household: CloudHousehold, memberName: string): BootstrapResponse {
+  return {
+    household,
+    members: [{ householdId: household.id, userId: 'alice', displayName: memberName, role: 'owner', status: 'active', joinedAt: 1, version: 1 }],
+    batches: [], movements: [], shoppingItems: [], cookingRecords: [], recipeProgress: [],
+    preferences: { householdId: household.id, userId: 'alice', freshnessReminderDays: 3, defaultStorageMode: 'chilled', favoriteRecipeIds: [], version: 1 },
+    cursor: 0,
+    catalogVersion: 3,
+  };
+}
+
+class FakeAccountGateway extends FakeGateway implements CloudAccountGateway {
+  households: CloudHousehold[] = [
+    { id: 'home', name: '我的冰箱', timezone: 'Asia/Shanghai', ownerUserId: 'alice', version: 1 },
+    { id: 'family', name: '爸妈家', timezone: 'Asia/Shanghai', ownerUserId: 'alice', version: 1 },
+  ];
+  snapshots = new Map(this.households.map((item) => [item.id, snapshot(item, item.id === 'home' ? '小秦' : '妈妈')]));
+  failBootstrapFor = '';
+
+  async login(): Promise<LoginResponse> {
+    return { accessToken: 'cloud-token', expiresAt: Date.now() + 60_000, user: { id: 'alice', displayName: '小秦' }, households: this.households };
+  }
+  async bootstrap(_accessToken: string, householdId: string): Promise<BootstrapResponse> {
+    if (householdId === this.failBootstrapFor) throw new RemoteApiError('NETWORK_UNAVAILABLE', 'offline', 0);
+    const found = this.snapshots.get(householdId);
+    if (!found) throw new Error('missing snapshot');
+    return found;
+  }
+  async listHouseholds(): Promise<CloudHousehold[]> { return this.households; }
+  async createHousehold(_token: string, name: string): Promise<CloudHousehold> {
+    const created = { id: `created-${this.households.length}`, name, timezone: 'Asia/Shanghai', ownerUserId: 'alice', version: 1 };
+    this.households = [...this.households, created];
+    this.snapshots.set(created.id, snapshot(created, '小秦'));
+    return created;
+  }
+  async createInvitation(_token: string, householdId: string): Promise<InvitationResponse> {
+    return { invitation: { id: 'invite-1', householdId, role: 'member', expiresAt: Date.now() + 60_000, maxUses: 1, usedCount: 0 }, token: 'invite-token' };
+  }
+  async acceptInvitation(): Promise<CloudHouseholdMember> {
+    return { householdId: 'family', userId: 'alice', role: 'member', status: 'active', joinedAt: 1, version: 1 };
+  }
+  async updateMemberRole(
+    _token: string, householdId: string, userId: string, role: Exclude<CloudHouseholdRole, 'owner'>,
+  ): Promise<CloudHouseholdMember> {
+    return { householdId, userId, role, status: 'active', joinedAt: 1, version: 2 };
+  }
+  async removeMember(): Promise<void> {}
+  async transferOwnership(_token: string, householdId: string, userId: string): Promise<CloudHousehold> {
+    const found = this.households.find((item) => item.id === householdId)!;
+    return { ...found, ownerUserId: userId, version: found.version + 1 };
+  }
 }
 
 let commandSequence = 0;
@@ -172,5 +241,71 @@ describe('2.0 小程序同步协调器', () => {
     assert.equal(envelope.cursor, 0);
     assert.equal(envelope.entities.household?.home?.version, 2);
     assert.equal(envelope.entities.pantryBatch?.['batch-server']?.version, 3);
+  });
+});
+
+describe('2.0 冲突中心', () => {
+  it('28. 用户确认重试后保留 mutationId 并重新进入待同步队列', () => {
+    const local = new LocalV2Repository(new MemoryStorage(), () => 2_000);
+    const queued = command();
+    local.enqueue(queued);
+    local.recordConflict('home', {
+      id: 'conflict-retry', mutationId: queued.mutationId, householdId: 'home', type: 'INVENTORY_CONFLICT',
+      command: queued.command, recommendation: '重新确认', createdAt: 1_000,
+    });
+    local.retryConflict('home', 'conflict-retry', 7);
+    const envelope = local.envelope('home');
+    assert.equal(envelope.conflicts.length, 0);
+    assert.equal(envelope.outbox[0]?.state, 'pending');
+    assert.equal(envelope.outbox[0]?.command.mutationId, queued.mutationId);
+    assert.equal(envelope.outbox[0]?.command.baseVersion, 7);
+    assert.equal(envelope.outbox[0]?.nextAttemptAt, 2_000);
+  });
+
+  it('29. 取消冲突只删除对应本机操作，成员变化冲突禁止重试', () => {
+    const local = new LocalV2Repository(new MemoryStorage(), () => 2_000);
+    const first = command();
+    const second = command();
+    local.enqueue(first);
+    local.enqueue(second);
+    local.recordConflict('home', {
+      id: 'membership-conflict', mutationId: first.mutationId, householdId: 'home', type: 'MEMBERSHIP_CHANGED',
+      command: first.command, recommendation: '停止重试', createdAt: 1_000,
+    });
+    assert.throws(() => local.retryConflict('home', 'membership-conflict'), /不能重试/);
+    local.cancelConflict('home', 'membership-conflict');
+    const envelope = local.envelope('home');
+    assert.equal(envelope.conflicts.length, 0);
+    assert.deepEqual(envelope.outbox.map((item) => item.command.mutationId), [second.mutationId]);
+  });
+});
+
+describe('2.0 家庭切换客户端', () => {
+  it('37. 登录先完整下载首个家庭，再原子保存云端身份与成员快照', async () => {
+    const local = new LocalV2Repository(new MemoryStorage(), () => 2_000);
+    const gateway = new FakeAccountGateway();
+    const service = new CloudSyncService(local, () => gateway, { cloudSyncEnabled: true, apiBaseUrl: 'https://api.example.test' });
+    await service.signIn();
+    assert.equal(service.authState().mode, 'cloud');
+    assert.equal(service.authState().activeHouseholdId, 'home');
+    assert.equal(service.status().activeHouseholdName, '我的冰箱');
+    assert.equal(service.members()[0]?.displayName, '小秦');
+    assert.equal(local.envelope('home').entities.household?.home?.version, 1);
+  });
+
+  it('38. 切换家庭失败不会改变当前选择，成功后保留原家庭 Outbox', async () => {
+    const local = new LocalV2Repository(new MemoryStorage(), () => 2_000);
+    const gateway = new FakeAccountGateway();
+    const service = new CloudSyncService(local, () => gateway, { cloudSyncEnabled: true, apiBaseUrl: 'https://api.example.test' });
+    await service.signIn();
+    local.enqueue(command('home'));
+    gateway.failBootstrapFor = 'family';
+    await assert.rejects(service.switchHousehold('family'), /offline/);
+    assert.equal(service.authState().activeHouseholdId, 'home');
+    gateway.failBootstrapFor = '';
+    await service.switchHousehold('family');
+    assert.equal(service.authState().activeHouseholdId, 'family');
+    assert.equal(service.members()[0]?.displayName, '妈妈');
+    assert.equal(local.envelope('home').outbox.length, 1);
   });
 });

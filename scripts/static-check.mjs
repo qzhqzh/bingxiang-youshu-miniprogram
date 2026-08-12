@@ -31,7 +31,7 @@ for (const path of files.filter((item) => item.endsWith('.json'))) {
   JSON.parse(readFileSync(path, 'utf8'));
 }
 
-const allowedWxmlTags = new Set(['view', 'text', 'image', 'button', 'input', 'picker', 'textarea', 'scroll-view', 'block', 'freshness-badge', 'empty-state']);
+const allowedWxmlTags = new Set(['view', 'text', 'image', 'button', 'input', 'picker', 'textarea', 'scroll-view', 'navigator', 'block', 'freshness-badge', 'empty-state']);
 for (const path of files.filter((item) => item.endsWith('.wxml'))) {
   const source = readFileSync(path, 'utf8');
   assert.ok(!/<[\w-]+\b(?=[^>]*\bwx:if=)(?=[^>]*\bwx:for=)[^>]*>/s.test(source), `WXML 不应在同一节点混用 wx:if 与 wx:for，请用 block 分组: ${path}`);

@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="page-title">家庭空间</view>
+  <view class="page-subtitle">每个家庭的库存、清单和做菜记录彼此隔离；切换前会先完整下载目标家庭。</view>
+
+  <view wx:if="{{loading}}" class="card loading-card">正在读取家庭…</view>
+  <view wx:else>
+    <view wx:if="{{error}}" class="error-card">{{error}}</view>
+    <view wx:if="{{mode === 'guest'}}" class="guest-card card">
+      <view class="guest-title">当前仍是游客本地模式</view>
+      <view>开启家庭云同步后，才能创建家庭、接受邀请和跨设备切换；本机功能不受影响。</view>
+      <button class="btn-secondary" bindtap="backToCloud">返回同步设置</button>
+    </view>
+
+    <block wx:else>
+      <view class="section">
+        <view class="section-head"><view class="section-title">我的家庭</view><view class="section-link" bindtap="openMembers">成员管理 ›</view></view>
+        <view wx:if="{{households.length}}" class="household-list">
+          <view class="household-card card {{item.selected ? 'selected' : ''}}" wx:for="{{households}}" wx:key="id" data-id="{{item.id}}" bindtap="switchHousehold">
+            <view><view class="household-name">{{item.name}}</view><view class="household-meta">{{item.timezone}} · 版本 {{item.version}}</view></view>
+            <view class="selected-mark">{{item.selected ? '当前' : '切换 ›'}}</view>
+          </view>
+        </view>
+        <empty-state wx:else title="还没有家庭空间" description="创建一个家庭后，才能开始安全同步。" image="/assets/png/app-logo-v2.png"/>
+      </view>
+
+      <view class="section"><view class="section-title">创建新家庭</view><view class="form-card card">
+        <input class="field-control" maxlength="30" value="{{newHouseholdName}}" placeholder="例如：我们家的冰箱" bindinput="onNameInput"/>
+        <button class="btn-primary" loading="{{busy}}" disabled="{{busy || !available}}" bindtap="createHousehold">创建并切换</button>
+      </view></view>
+
+      <view class="section"><view class="section-title">加入别人的家庭</view><view class="form-card card">
+        <input class="field-control" maxlength="200" value="{{invitationToken}}" placeholder="粘贴邀请口令；不会自动加入" bindinput="onTokenInput"/>
+        <button class="btn-secondary" loading="{{busy}}" disabled="{{busy || !available}}" bindtap="acceptInvitation">确认加入</button>
+      </view></view>
+      <view wx:if="{{!available}}" class="notice">当前安装包的云端开关处于关闭状态，这些操作不会发起网络请求。</view>
+    </block>
+  </view>
+</view>

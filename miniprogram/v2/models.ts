@@ -20,6 +20,27 @@ export interface CloudHousehold {
   version: number;
 }
 
+export type CloudHouseholdRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+export interface CloudHouseholdMember {
+  householdId: string;
+  userId: string;
+  displayName?: string;
+  role: CloudHouseholdRole;
+  status: 'active' | 'removed' | 'frozen';
+  joinedAt: number;
+  version: number;
+}
+
+export interface CloudInvitation {
+  id: string;
+  householdId: string;
+  role: Exclude<CloudHouseholdRole, 'owner'>;
+  expiresAt: number;
+  maxUses: number;
+  usedCount: number;
+}
+
 export interface CloudAuthState {
   mode: 'guest' | 'cloud';
   accessToken?: string;

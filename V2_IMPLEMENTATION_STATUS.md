@@ -1,7 +1,7 @@
 # 冰箱有数 2.0 实现状态
 
 更新时间：2026-08-13
-当前阶段：`2.0.0-alpha.0`，阶段 0/1 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
+当前阶段：`2.0.0-alpha.1`，阶段 0/1 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
 
 本文用代码证据区分“已经完成”“已实现但尚未生产化”和“尚未实现”，避免把设计文档误读成上线事实。2.0 的完整目标仍以 [`V2_MULTI_USER_SYNC_DESIGN.md`](./V2_MULTI_USER_SYNC_DESIGN.md) 为准。
 
@@ -19,30 +19,35 @@
 | 小程序 v2 原子家庭信封 | [`miniprogram/repositories/local/local-v2.repository.ts`](./miniprogram/repositories/local/local-v2.repository.ts) |
 | Outbox、退避、冲突箱、分页 pull、全量重建 | [`miniprogram/services/cloud/sync-coordinator.ts`](./miniprogram/services/cloud/sync-coordinator.ts) |
 | 版本化 HTTP 路由和统一错误体 | [`server/src/app.ts`](./server/src/app.ts) |
+| HTTP 严格运行时 schema、2 MiB 迁移上限与统一 400/413 | [`server/src/http-schema.ts`](./server/src/http-schema.ts)、[`server/src/app.ts`](./server/src/app.ts) |
+| 可异步注入的服务契约 | [`server/src/api-service.ts`](./server/src/api-service.ts) |
 | OpenAPI 初版契约 | [`server/openapi.yaml`](./server/openapi.yaml) |
 | PostgreSQL 初版 schema 与约束 | [`server/db/migrations/0001_v2_core.sql`](./server/db/migrations/0001_v2_core.sql) |
+| PostgreSQL `SERIALIZABLE` mutation 执行器、幂等/cursor/变更同事务与做菜批次锁 | [`server/src/postgres/mutation-executor.ts`](./server/src/postgres/mutation-executor.ts) |
 | 小程序“家庭与云同步”状态/双重迁移确认页 | [`miniprogram/pages/cloud-sync/index.wxml`](./miniprogram/pages/cloud-sync/index.wxml) |
+| 冲突中心、显式重试/取消与成员变化永久拒绝 | [`miniprogram/pages/sync-conflicts/index.wxml`](./miniprogram/pages/sync-conflicts/index.wxml)、[`miniprogram/repositories/local/local-v2.repository.ts`](./miniprogram/repositories/local/local-v2.repository.ts) |
+| 家庭创建/切换/接受邀请与切换前原子下载 | [`miniprogram/pages/households/index.wxml`](./miniprogram/pages/households/index.wxml)、[`miniprogram/services/cloud/cloud-sync.service.ts`](./miniprogram/services/cloud/cloud-sync.service.ts) |
+| 成员列表、邀请分享、角色调整、移除与所有权转移 | [`miniprogram/pages/household-members/index.wxml`](./miniprogram/pages/household-members/index.wxml)、[`miniprogram/services/cloud/remote-sync.gateway.ts`](./miniprogram/services/cloud/remote-sync.gateway.ts) |
 
 ## 已实现但尚未生产化
 
 - 服务端领域流程当前由 `InMemoryV2Store` 驱动，用于验证事务边界和接口契约。`NODE_ENV=production` 会主动拒绝启动，防止误用内存数据库。
-- PostgreSQL schema 和迁移执行器已经存在，但尚未实现 `PostgresV2Store`，API 还不能持久化真实数据。
+- PostgreSQL schema 和 mutation 事务执行器已经存在，SQL 边界已通过模拟连接测试；尚未实现完整 `PostgresV2Service`/查询 Store 并接入 API，也未在真实 PostgreSQL 实例执行集成测试。
 - 小程序 Remote Gateway 已实现 `wx.login`、Bearer API、push/pull 和迁移调用；正式配置保持关闭，API 域名为空。
-- 2.0 同步状态页已可在开发包查看，但登录按钮在未配置生产环境时只解释当前状态，不会发出网络请求。
+- 2.0 同步、冲突、家庭和成员页面已可在开发包查看，但登录按钮在未配置生产环境时只解释当前状态，不会发出网络请求。
 - v2 信封可以可靠管理远端实体、Outbox 和冲突；现有 1.x `AppService` 尚未切换为“云模式命令总线”，因此不能开启真实云同步。
 - PostgreSQL 迁移未在真实 PostgreSQL 实例执行；目前只有静态契约门禁。
 
 ## 尚未实现
 
-1. PostgreSQL 持久化 Store、数据库事务中的 FEFO `SELECT … FOR UPDATE`、增量 cursor 分配与幂等提交。
-2. API 请求 schema 运行时校验、速率限制、Redis 可选实现、结构化日志、指标与链路追踪。
+1. 完整 PostgreSQL 查询/命令服务、API 运行时接线与真实数据库集成测试；事务执行器已有 `SELECT … FOR UPDATE`、cursor 和幂等提交边界。
+2. 速率限制、Redis 可选实现、结构化日志、指标与链路追踪。
 3. access token 轮换/续期、用户数据导出、注销冷静期与删除任务。
 4. 小程序主业务页面在云模式下经命令总线写 Outbox，并由远端 canonical 数据驱动 UI。
-5. 家庭创建、切换、成员列表、邀请分享、角色调整、冲突处理页面。
-6. 运营后台前端、客服受控操作、审计查询和双人审批。
-7. 生产/预发环境、HTTPS API 域名、备份恢复演练、告警和灾难恢复。
-8. 两台真实设备并发、弱网/断网、成员移除和大数据量回归。
-9. 隐私协议最终文本、服务类目确认、微信隐私保护指引申报和主体合规复核。
+5. 运营后台前端、客服受控操作、审计查询和双人审批。
+6. 生产/预发环境、HTTPS API 域名、备份恢复演练、告警和灾难恢复。
+7. 两台真实设备并发、弱网/断网、成员移除和大数据量回归。
+8. 隐私协议最终文本、服务类目确认、微信隐私保护指引申报和主体合规复核。
 
 ## 自动验证
 
@@ -57,11 +62,12 @@ pnpm run release:check
 当前结果：
 
 - 1.x：19 项领域与闭环测试通过。
-- 2.0：27 项身份、RBAC、租户隔离、同步、并发库存、迁移和小程序信封测试通过。
-- 合计：46 项测试通过。
+- 2.0：38 项身份、RBAC、租户隔离、同步、并发库存、迁移、HTTP schema、家庭切换、PostgreSQL 事务边界和冲突处理测试通过。
+- 合计：57 项测试通过。
 - 小程序与服务端 TypeScript 严格检查通过。
-- 10 个小程序页面、120 个小程序文件通过静态检查。
-- OpenAPI 核心路由和数据库关键约束通过契约检查。
+- 13 个小程序页面、132 个小程序文件通过静态检查。
+- OpenAPI、运行时 schema、数据库关键约束和 PostgreSQL 事务边界通过契约检查。
+- 同步状态、冲突中心、家庭空间和家庭成员页面已在微信开发者工具中完成专项渲染回归；结束后普通编译首页正常。
 - 提审配置保持 `devSeed=false`、`cloudSyncEnabled=false`，不会自动登录或联网。
 
 ## 进入真实联调前的最小外部条件

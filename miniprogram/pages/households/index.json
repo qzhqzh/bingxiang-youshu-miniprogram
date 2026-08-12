@@ -1,0 +1,4 @@
+{
+  "navigationBarTitleText": "家庭空间",
+  "usingComponents": { "empty-state": "../../components/empty-state/index" }
+}

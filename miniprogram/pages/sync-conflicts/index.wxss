@@ -1,0 +1,15 @@
+.conflict-list { display:flex; flex-direction:column; gap:22rpx; margin-top:30rpx; }
+.conflict-card { padding:28rpx; }
+.conflict-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20rpx; }
+.conflict-type { color:#994A42; font-size:29rpx; font-weight:700; }
+.conflict-command { margin-top:8rpx; color:#7B746B; font-size:22rpx; }
+.conflict-state { flex:none; padding:7rpx 14rpx; border-radius:999rpx; background:#FCE5DF; color:#A65348; font-size:21rpx; }
+.recommendation { margin-top:24rpx; color:#294D43; font-size:25rpx; line-height:1.65; }
+.server-value { display:flex; flex-direction:column; gap:8rpx; margin-top:18rpx; padding:18rpx; border-radius:16rpx; background:#F3EFE7; color:#6D675E; font-size:22rpx; word-break:break-all; }
+.server-value text:first-child { color:#455E56; font-weight:650; }
+.membership-note { margin-top:18rpx; padding:18rpx; border-radius:16rpx; background:#FFF2DF; color:#895D27; font-size:22rpx; line-height:1.55; }
+.conflict-actions { display:flex; gap:16rpx; margin-top:26rpx; }
+.conflict-actions button { height:70rpx; line-height:70rpx; margin:0; border:0; border-radius:16rpx; font-size:24rpx; }
+.conflict-actions button::after { border:0; }
+.retry { flex:1.35; background:#24564A; color:#fff; }
+.cancel { flex:1; background:#F2ECE2; color:#9B4B45; }

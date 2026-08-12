@@ -1,0 +1,12 @@
+.guest-card { margin-top:30rpx; padding:30rpx; color:#6B756F; font-size:24rpx; line-height:1.65; }
+.guest-title { margin-bottom:10rpx; color:#24564A; font-size:30rpx; font-weight:700; }
+.guest-card button { margin-top:24rpx; }
+.household-list { display:flex; flex-direction:column; gap:18rpx; }
+.household-card { display:flex; align-items:center; justify-content:space-between; gap:24rpx; padding:26rpx; }
+.household-card.selected { border-color:#75A18F; background:#F4FAF5; }
+.household-name { color:#24564A; font-size:29rpx; font-weight:700; }
+.household-meta { margin-top:8rpx; color:#7A756C; font-size:22rpx; }
+.selected-mark { color:#3E806C; font-size:24rpx; font-weight:650; }
+.form-card { display:flex; flex-direction:column; gap:18rpx; margin-top:18rpx; padding:24rpx; }
+.form-card button { width:100%; margin:0; }
+.notice { margin-top:24rpx; padding:22rpx; border-radius:18rpx; background:#F1E9DC; color:#786D60; font-size:23rpx; line-height:1.6; }

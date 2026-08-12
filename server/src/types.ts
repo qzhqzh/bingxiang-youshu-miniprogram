@@ -68,6 +68,7 @@ export interface HouseholdMember {
   status: MembershipStatus;
   joinedAt: number;
   version: number;
+  displayName?: string;
 }
 
 export interface Invitation {

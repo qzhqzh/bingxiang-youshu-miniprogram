@@ -354,4 +354,55 @@ describe('2.0 显式迁移与 HTTP 契约', () => {
     assert.equal(me.json().id, auth.json().user.id);
     await app.close();
   });
+
+  it('30. HTTP schema 在进入身份服务前拒绝缺失字段和额外字段', async () => {
+    const { service, store } = context();
+    const app = buildApp(service);
+    const missing = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload: { code: 'alice' } });
+    const extra = await app.inject({
+      method: 'POST', url: '/v2/auth/wechat', payload: { code: 'alice', deviceId: 'phone', unexpected: true },
+    });
+    assert.equal(missing.statusCode, 400);
+    assert.equal(extra.statusCode, 400);
+    assert.equal(missing.json().error.code, 'VALIDATION_ERROR');
+    assert.equal(store.users.size, 0);
+    await app.close();
+  });
+
+  it('31. 非法同步命令由运行时契约拒绝且不产生库存事实', async () => {
+    const { service, store } = context();
+    const app = buildApp(service);
+    const auth = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload: { code: 'alice', deviceId: 'phone' } });
+    const householdId = auth.json().households[0].id as string;
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v2/sync/push',
+      headers: { authorization: `Bearer ${auth.json().accessToken as string}` },
+      payload: {
+        mutationId: 'bad-purchase', deviceId: 'phone', householdId, command: 'PurchaseBatch', entityId: 'bad-batch',
+        baseVersion: 0, clientOccurredAt: '2026-08-13T01:00:00.000Z',
+        payload: { ingredientId: 'egg', quantity: -1, unit: '枚', purchasedAt: '2026-08-13', storageMode: 'chilled' },
+      },
+    });
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json().error.code, 'VALIDATION_ERROR');
+    assert.equal(store.batches.size, 0);
+    assert.equal(store.movements.size, 0);
+    await app.close();
+  });
+
+  it('32. 超大请求在解析领域数据前返回统一 413 错误', async () => {
+    const { service } = context();
+    const app = buildApp(service);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v2/migrations/v1/prepare',
+      headers: { authorization: 'Bearer invalid', 'content-type': 'application/json' },
+      payload: JSON.stringify({ householdId: 'home', importBatchId: 'large', source: 'x'.repeat(2_200_000) }),
+    });
+    assert.equal(response.statusCode, 413);
+    assert.equal(response.json().error.code, 'VALIDATION_ERROR');
+    assert.equal(response.json().error.message, '请求内容超过允许大小');
+    await app.close();
+  });
 });

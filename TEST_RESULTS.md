@@ -78,7 +78,7 @@ pnpm run release:check:placeholder
 - 2026-08-13 前两次发起 1.2.0 上传时，微信上传通道返回 `Error: read ECONNRESET [2.02.2607271][win32-x64]`；第三次重试成功，开发者工具明确显示“代码上传成功”，并按提示覆盖原体验版。
 - 当前仍无登录、网络或云端调用。
 
-## 2.0.0-alpha.0 基础架构复验
+## 2.0.0-alpha.1 家庭协作与事务边界复验
 
 执行命令：
 
@@ -90,12 +90,18 @@ pnpm run release:check
 ```
 
 - 1.x：19 项领域与本地业务闭环测试通过。
-- 2.0：27 项身份、会话、RBAC、租户隔离、幂等、同步、冲突、并发 FEFO、迁移和本地信封测试通过。
-- 合计：46 passed，0 failed，0 skipped；小程序与服务端 TypeScript 严格检查均为 0 错误。
+- 2.0：38 项身份、会话、RBAC、租户隔离、幂等、同步、冲突、并发 FEFO、迁移、HTTP schema、家庭切换和 PostgreSQL 事务边界测试通过。
+- 合计：57 passed，0 failed，0 skipped；小程序与服务端 TypeScript 严格检查均为 0 错误。
 - 全量快照额外覆盖初始 `cursor=0`，快照、Outbox 与 conflicts 在同一个本地原子写入中切换。
-- 静态检查：10 个页面、10 个页面控制器、120 个小程序文件；JSON、WXML、资源和 Repository 存储边界均通过。
-- 2.0 契约门禁：OpenAPI 核心路由、PostgreSQL 核心表与非负库存/唯一 owner/幂等键约束通过。
+- HTTP 运行时校验覆盖缺失字段、额外字段、非法负数和超过 2 MiB 的迁移请求；非法请求不会进入领域服务。
+- PostgreSQL 执行器测试覆盖 `SERIALIZABLE`、家庭与 mutation advisory lock、幂等重放、失败回滚、同事务 cursor/变更日志，以及做菜候选批次 `FOR UPDATE` 后的 FEFO 分配。
+- 静态检查：13 个页面、13 个页面控制器、132 个小程序文件；JSON、WXML、资源和 Repository 存储边界均通过。
+- 2.0 契约门禁：OpenAPI、运行时 schema、PostgreSQL 核心表与非负库存/唯一 owner/幂等键约束、事务边界均通过。
 - 发布安全门禁：`devSeed=false`、`cloudSyncEnabled=false`、API 地址为空；`wx.login` 和 `wx.request` 只存在于关闭状态的远端网关。
 - 微信开发者工具 RC 2.02.2607271 普通编译通过：首页、“我的”和新增“家庭与云同步”页正常渲染；首次切页存在约 10–15 秒的工具渲染延迟，等待后内容完整出现。
+- 新增“同步冲突”页通过专项启动路径与普通编译入口两次实测，空状态文案、图标和返回导航正常；云同步页原生入口可达。
+- 新增“家庭空间”和“家庭成员”页分别通过专项启动路径实测；游客提示、安全禁用状态和返回导航正常。家庭成员页首次增量编译等待较久，完整刷新后内容正常且无业务错误。
+- 专项验证结束后已切回普通编译，首页再次正常渲染。
 - 在云同步关闭状态点击登录，只显示“云同步尚未开放”提示，未产生业务网络请求；调试控制台未发现应用业务异常。
+- `release:check` 结果：品牌=冰箱有数，AppID=`wxc62caa8eb9379ed4`，`devSeed=false`，`cloudSyncEnabled=false`，主包约 456.4 KiB。
 - 该 Alpha 未上传微信平台；稳定体验版仍为已上传的 1.2.0。

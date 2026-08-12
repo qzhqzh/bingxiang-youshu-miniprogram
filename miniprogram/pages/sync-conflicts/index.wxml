@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="page-title">同步冲突</view>
+  <view class="page-subtitle">这里只放无法安全自动合并的操作。每一条都由你决定重新提交或取消。</view>
+
+  <view wx:if="{{loading}}" class="card loading-card">正在读取冲突…</view>
+  <view wx:elif="{{error}}" class="error-card">{{error}}</view>
+  <view wx:elif="{{conflicts.length}}" class="conflict-list">
+    <view class="conflict-card card" wx:for="{{conflicts}}" wx:key="id">
+      <view class="conflict-head">
+        <view><view class="conflict-type">{{item.typeLabel}}</view><view class="conflict-command">{{item.commandLabel}} · {{item.timeText}}</view></view>
+        <text class="conflict-state">待处理</text>
+      </view>
+      <view class="recommendation">{{item.recommendation}}</view>
+      <view wx:if="{{item.serverSummary}}" class="server-value"><text>服务端信息</text><text>{{item.serverSummary}}</text></view>
+      <view wx:if="{{!item.retryable}}" class="membership-note">成员权限已经变化，旧操作不能继续写入这个家庭；你仍可取消并保留当前本机数据。</view>
+      <view class="conflict-actions">
+        <button wx:if="{{item.retryable}}" class="retry" data-id="{{item.id}}" bindtap="retry">按最新数据重试</button>
+        <button class="cancel" data-id="{{item.id}}" bindtap="cancel">取消本机操作</button>
+      </view>
+    </view>
+  </view>
+  <empty-state wx:else title="没有需要处理的冲突" description="本机操作与家庭云端状态一致。断网时的操作仍会留在待同步队列，不会出现在这里。" image="/assets/png/app-logo-v2.png"/>
+</view>

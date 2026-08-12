@@ -1,5 +1,8 @@
 import type {
   CloudHousehold,
+  CloudHouseholdMember,
+  CloudHouseholdRole,
+  CloudInvitation,
   CloudUser,
   MigrationSummary,
   PullPage,
@@ -15,8 +18,8 @@ export interface LoginResponse {
 }
 
 export interface BootstrapResponse {
-  household: Record<string, unknown> & { id: string; version: number };
-  members: Array<Record<string, unknown> & { userId: string; version: number }>;
+  household: CloudHousehold;
+  members: CloudHouseholdMember[];
   batches: Array<Record<string, unknown> & { id: string; version: number }>;
   movements: Array<Record<string, unknown> & { id: string }>;
   shoppingItems: Array<Record<string, unknown> & { id: string; version: number }>;
@@ -25,6 +28,11 @@ export interface BootstrapResponse {
   preferences: Record<string, unknown> & { userId: string; version: number };
   cursor: number;
   catalogVersion: number;
+}
+
+export interface InvitationResponse {
+  invitation: CloudInvitation;
+  token: string;
 }
 
 export class RemoteApiError extends Error {
@@ -44,11 +52,31 @@ export interface RemoteSyncGateway {
   commitMigration(accessToken: string, householdId: string, importBatchId: string, source: string): Promise<MigrationSummary>;
 }
 
+export interface CloudAccountGateway extends RemoteSyncGateway {
+  listHouseholds(accessToken: string): Promise<CloudHousehold[]>;
+  createHousehold(accessToken: string, name: string, timezone?: string): Promise<CloudHousehold>;
+  createInvitation(
+    accessToken: string,
+    householdId: string,
+    role?: Exclude<CloudHouseholdRole, 'owner'>,
+    maxUses?: number,
+  ): Promise<InvitationResponse>;
+  acceptInvitation(accessToken: string, token: string): Promise<CloudHouseholdMember>;
+  updateMemberRole(
+    accessToken: string,
+    householdId: string,
+    userId: string,
+    role: Exclude<CloudHouseholdRole, 'owner'>,
+  ): Promise<CloudHouseholdMember>;
+  removeMember(accessToken: string, householdId: string, userId: string): Promise<void>;
+  transferOwnership(accessToken: string, householdId: string, userId: string): Promise<CloudHousehold>;
+}
+
 interface ApiErrorBody {
   error?: { code?: string; message?: string; details?: unknown };
 }
 
-export class WechatRemoteSyncGateway implements RemoteSyncGateway {
+export class WechatRemoteSyncGateway implements CloudAccountGateway {
   constructor(private readonly apiBaseUrl: string) {
     if (!/^https:\/\//.test(apiBaseUrl)) throw new Error('云同步 API 必须使用 HTTPS');
   }
@@ -78,6 +106,54 @@ export class WechatRemoteSyncGateway implements RemoteSyncGateway {
 
   bootstrap(accessToken: string, householdId: string): Promise<BootstrapResponse> {
     return this.request(`/v2/bootstrap?householdId=${encodeURIComponent(householdId)}`, 'GET', undefined, accessToken);
+  }
+
+  listHouseholds(accessToken: string): Promise<CloudHousehold[]> {
+    return this.request('/v2/households', 'GET', undefined, accessToken);
+  }
+
+  createHousehold(accessToken: string, name: string, timezone = 'Asia/Shanghai'): Promise<CloudHousehold> {
+    return this.request('/v2/households', 'POST', { name, timezone }, accessToken);
+  }
+
+  createInvitation(
+    accessToken: string,
+    householdId: string,
+    role: Exclude<CloudHouseholdRole, 'owner'> = 'member',
+    maxUses = 1,
+  ): Promise<InvitationResponse> {
+    return this.request(`/v2/households/${encodeURIComponent(householdId)}/invitations`, 'POST', { role, maxUses }, accessToken);
+  }
+
+  acceptInvitation(accessToken: string, token: string): Promise<CloudHouseholdMember> {
+    return this.request(`/v2/invitations/${encodeURIComponent(token)}/accept`, 'POST', undefined, accessToken);
+  }
+
+  updateMemberRole(
+    accessToken: string,
+    householdId: string,
+    userId: string,
+    role: Exclude<CloudHouseholdRole, 'owner'>,
+  ): Promise<CloudHouseholdMember> {
+    return this.request(
+      `/v2/households/${encodeURIComponent(householdId)}/members/${encodeURIComponent(userId)}`,
+      'PATCH',
+      { role },
+      accessToken,
+    );
+  }
+
+  async removeMember(accessToken: string, householdId: string, userId: string): Promise<void> {
+    await this.request(
+      `/v2/households/${encodeURIComponent(householdId)}/members/${encodeURIComponent(userId)}`,
+      'DELETE',
+      undefined,
+      accessToken,
+    );
+  }
+
+  transferOwnership(accessToken: string, householdId: string, userId: string): Promise<CloudHousehold> {
+    return this.request(`/v2/households/${encodeURIComponent(householdId)}/transfer-ownership`, 'POST', { userId }, accessToken);
   }
 
   prepareMigration(accessToken: string, householdId: string, importBatchId: string, source: string): Promise<MigrationSummary> {

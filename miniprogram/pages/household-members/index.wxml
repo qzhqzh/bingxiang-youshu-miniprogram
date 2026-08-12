@@ -1,0 +1,31 @@
+<view class="page">
+  <view class="page-title">家庭成员</view>
+  <view class="page-subtitle">{{householdName}} · 服务端始终按当前成员关系授权，不信任设备里缓存的旧角色。</view>
+  <view wx:if="{{loading}}" class="card loading-card">正在读取成员…</view>
+  <view wx:else>
+    <view wx:if="{{error}}" class="error-card">{{error}}</view>
+    <view wx:if="{{mode === 'guest'}}" class="notice">游客模式没有云端家庭成员。请先返回“家庭与云同步”主动开启。</view>
+    <block wx:else>
+      <view class="member-list">
+        <view class="member-card card" wx:for="{{members}}" wx:key="userId">
+          <view class="avatar">{{item.initial}}</view>
+          <view class="member-main"><view class="member-name">{{item.displayName}} <text wx:if="{{item.isSelf}}">（我）</text></view><view class="member-role">{{item.roleLabel}}</view></view>
+          <view wx:if="{{canManage && item.manageable}}" class="member-actions">
+            <text data-id="{{item.userId}}" bindtap="changeRole">角色</text>
+            <text class="danger" data-id="{{item.userId}}" data-name="{{item.displayName}}" bindtap="removeMember">移除</text>
+            <text data-id="{{item.userId}}" data-name="{{item.displayName}}" bindtap="transferOwnership">转让</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{canManage}}" class="section"><view class="section-title">邀请新成员</view><view class="invite-card card">
+        <view>默认生成一次有效、72 小时过期的成员邀请。邀请口令不会包含 openid 或家庭数据库主键。</view>
+        <button class="btn-primary" loading="{{busy}}" disabled="{{busy || !available}}" bindtap="createInvitation">生成邀请口令</button>
+        <view wx:if="{{invitationToken}}" class="token-box" bindtap="copyInvitation"><text>{{invitationToken}}</text><text>有效至 {{invitationExpiresText}} · 已复制，点此再次复制</text></view>
+        <button wx:if="{{invitationToken}}" class="btn-secondary" open-type="share">发送微信邀请</button>
+      </view></view>
+      <view wx:if="{{!canManage}}" class="notice">只有家庭所有者可以邀请、调整角色、移除成员或转移所有权。</view>
+      <view wx:if="{{!available}}" class="notice">当前安装包的云端开关处于关闭状态，不会发起成员变更请求。</view>
+    </block>
+  </view>
+</view>
