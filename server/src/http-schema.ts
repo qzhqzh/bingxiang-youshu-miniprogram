@@ -51,6 +51,7 @@ export const schemas = {
     body: objectSchema({ role: { type: 'string', enum: ['admin', 'member', 'viewer'] } }, ['role']),
   },
   transferOwnership: { body: objectSchema({ userId: id }, ['userId']) },
+  accountDeletion: { body: objectSchema({ confirmation: { type: 'string', const: '注销账号' } }, ['confirmation']) },
   householdQuery: { querystring: objectSchema({ householdId: id }, ['householdId']) },
   pullQuery: {
     querystring: objectSchema(

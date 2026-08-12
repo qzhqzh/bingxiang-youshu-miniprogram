@@ -405,4 +405,129 @@ describe('2.0 显式迁移与 HTTP 契约', () => {
     assert.equal(response.json().error.message, '请求内容超过允许大小');
     await app.close();
   });
+
+  it('39. 登录限流按哈希后的 IP 与设备维度生效并返回 Retry-After', async () => {
+    const { service, store } = context();
+    const observedKeys: string[] = [];
+    const app = buildApp(service, {
+      rateLimits: { login: { limit: 1, windowMs: 60_000 } },
+      rateLimiter: {
+        consume(key, limit) {
+          observedKeys.push(key);
+          return observedKeys.length <= limit
+            ? { allowed: true, remaining: 0, retryAfterMs: 60_000 }
+            : { allowed: false, remaining: 0, retryAfterMs: 42_001 };
+        },
+      },
+    });
+    const payload = { code: 'alice', deviceId: 'private-device-id' };
+    const first = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload });
+    const limited = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload });
+    assert.equal(first.statusCode, 200);
+    assert.equal(limited.statusCode, 429);
+    assert.equal(limited.headers['retry-after'], '43');
+    assert.equal(limited.json().error.code, 'RATE_LIMITED');
+    assert.equal(store.sessions.size, 1);
+    assert.equal(observedKeys.length, 2);
+    assert.equal(observedKeys[0], observedKeys[1]);
+    assert.ok(!observedKeys[0]!.includes('private-device-id'));
+    assert.ok(!observedKeys[0]!.includes('127.0.0.1'));
+    await app.close();
+  });
+
+  it('40. 不同设备的登录限流桶彼此隔离', async () => {
+    const { service } = context();
+    const app = buildApp(service, { rateLimits: { login: { limit: 1, windowMs: 60_000 } } });
+    const first = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload: { code: 'alice', deviceId: 'phone-a' } });
+    const other = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload: { code: 'alice', deviceId: 'phone-b' } });
+    const repeated = await app.inject({ method: 'POST', url: '/v2/auth/wechat', payload: { code: 'alice', deviceId: 'phone-a' } });
+    assert.equal(first.statusCode, 200);
+    assert.equal(other.statusCode, 200);
+    assert.equal(repeated.statusCode, 429);
+    await app.close();
+  });
+});
+
+describe('2.0 用户数据权利', () => {
+  it('41. 数据导出只包含当前可读家庭与本人个人状态，且不泄露身份和会话密钥', async () => {
+    const { service, store } = context();
+    const alice = await login(service, 'alice', 'alice-export-device');
+    const bob = await login(service, 'bob', 'bob-export-device');
+    const householdId = alice.households[0]!.id;
+    const invitation = service.createInvitation(alice.accessToken, householdId);
+    service.acceptInvitation(bob.accessToken, invitation.token);
+    await service.push(alice.accessToken, purchase(householdId, 'shared-export-egg', 'egg', 3));
+
+    const artifact = service.createDataExport(bob.accessToken);
+    const exported = JSON.stringify(artifact);
+    const shared = artifact.payload.households.find((item) => item.household.id === householdId)!;
+    assert.equal(artifact.status, 'ready');
+    assert.equal(shared.scope, 'member-readable');
+    assert.equal(shared.batches[0]?.id, 'shared-export-egg');
+    assert.ok(shared.recipeProgress.every((item) => item.userId === bob.user.id));
+    assert.equal(shared.preferences.userId, bob.user.id);
+    assert.ok(!exported.includes('wx-bob'));
+    assert.ok(!exported.includes(bob.accessToken));
+    assert.ok(!exported.includes('bob-export-device'));
+    assert.ok(!exported.includes('tokenHash'));
+    assert.ok(!exported.includes('deviceIdHash'));
+    assert.ok(artifact.payload.exclusions.length >= 4);
+    assert.ok([...store.auditLogs.values()].some((item) => item.action === 'user.export.created'));
+  });
+
+  it('42. owner 必须先转移家庭；申请后仅保留当前受限会话并可在冷静期取消', async () => {
+    const { service, store, clock } = context();
+    const bob = await login(service, 'bob', 'bob-main-device');
+    const bobOther = await login(service, 'bob', 'bob-tablet');
+    const alice = await login(service, 'alice', 'alice-device');
+    const householdId = bob.households[0]!.id;
+    await expectCode(() => service.requestAccountDeletion(bob.accessToken, '注销账号'), 'CONFLICT');
+    await expectCode(() => service.requestAccountDeletion(bob.accessToken, '确认注销'), 'VALIDATION_ERROR');
+
+    const invitation = service.createInvitation(bob.accessToken, householdId);
+    service.acceptInvitation(alice.accessToken, invitation.token);
+    service.transferOwnership(bob.accessToken, householdId, alice.user.id);
+    const request = service.requestAccountDeletion(bob.accessToken, '注销账号');
+    assert.equal(request.status, 'pending');
+    assert.equal(store.users.get(bob.user.id)?.status, 'deletionPending');
+    await expectCode(() => service.me(bob.accessToken), 'UNAUTHENTICATED');
+    clock.value += 3 * 24 * 60 * 60 * 1_000;
+    assert.equal(service.accountDeletionStatus(bob.accessToken).id, request.id);
+    const otherSession = [...store.sessions.values()].find((item) => item.tokenHash !== undefined && item.id !== request.restrictedSessionId && item.userId === bob.user.id);
+    assert.ok(otherSession?.revokedAt);
+    await expectCode(() => service.accountDeletionStatus(bobOther.accessToken), 'SESSION_REVOKED');
+
+    const cancelled = service.cancelAccountDeletion(bob.accessToken);
+    assert.equal(cancelled.status, 'cancelled');
+    assert.equal(service.me(bob.accessToken).status, 'active');
+    assert.ok([...store.auditLogs.values()].some((item) => item.action === 'user.deletion.cancelled'));
+  });
+
+  it('43. 冷静期到期任务撤销全部会话并匿名化用户，但保留共享做菜审计事实', async () => {
+    const { service, store, clock } = context();
+    const bob = await login(service, 'bob', 'bob-delete-device');
+    const alice = await login(service, 'alice', 'alice-owner-device');
+    const householdId = bob.households[0]!.id;
+    await stockSteamedEgg(service, bob.accessToken, householdId);
+    const cooked = await service.push(bob.accessToken, cook(householdId, 'bob-shared-cooking'));
+    const invitation = service.createInvitation(bob.accessToken, householdId);
+    service.acceptInvitation(alice.accessToken, invitation.token);
+    service.transferOwnership(bob.accessToken, householdId, alice.user.id);
+    const request = service.requestAccountDeletion(bob.accessToken, '注销账号');
+
+    clock.value = request.executeAfter + 1;
+    const [completed] = service.executeDueAccountDeletions();
+    assert.equal(completed?.status, 'completed');
+    assert.equal(store.users.get(bob.user.id)?.status, 'deleted');
+    assert.equal(store.users.get(bob.user.id)?.displayName, '已注销成员');
+    assert.ok([...store.identities.values()].every((item) => item.userId !== bob.user.id));
+    assert.ok([...store.sessions.values()].filter((item) => item.userId === bob.user.id).every((item) => item.revokedAt));
+    assert.equal(store.members.get(store.memberKey(householdId, bob.user.id))?.status, 'removed');
+    assert.equal((cooked.canonical as { actorUserId: string }).actorUserId, bob.user.id);
+    assert.equal(store.cookingRecords.get('bob-shared-cooking')?.actorUserId, bob.user.id);
+    const aliceRefreshed = await login(service, 'alice', 'alice-owner-device-refreshed');
+    const snapshot = service.bootstrap(aliceRefreshed.accessToken, householdId);
+    assert.ok(snapshot.members.every((item) => item.userId !== bob.user.id));
+    assert.equal(snapshot.cookingRecords.find((item) => item.id === 'bob-shared-cooking')?.actorUserId, bob.user.id);
+  });
 });

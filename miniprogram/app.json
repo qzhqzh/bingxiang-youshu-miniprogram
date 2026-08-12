@@ -12,7 +12,8 @@
     "pages/cloud-sync/index",
     "pages/sync-conflicts/index",
     "pages/households/index",
-    "pages/household-members/index"
+    "pages/household-members/index",
+    "pages/account-data/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F7F2E8",

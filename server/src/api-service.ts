@@ -1,5 +1,7 @@
 import type {
   Household,
+  AccountDeletionRequest,
+  DataExportArtifact,
   HouseholdMember,
   HouseholdRole,
   HouseholdSnapshot,
@@ -28,6 +30,10 @@ export interface V2ApiService {
   updateProfile(accessToken: string, displayName: string): Awaitable<User>;
   listSessions(accessToken: string): Awaitable<unknown[]>;
   revokeSession(accessToken: string, sessionId: string): Awaitable<void>;
+  createDataExport(accessToken: string): Awaitable<DataExportArtifact>;
+  requestAccountDeletion(accessToken: string, confirmation: string): Awaitable<AccountDeletionRequest>;
+  accountDeletionStatus(accessToken: string): Awaitable<AccountDeletionRequest>;
+  cancelAccountDeletion(accessToken: string): Awaitable<AccountDeletionRequest>;
   listHouseholds(accessToken: string): Awaitable<Household[]>;
   createHousehold(accessToken: string, name: string, timezone?: string): Awaitable<Household>;
   updateHousehold(accessToken: string, householdId: string, input: { name?: string; timezone?: string }): Awaitable<Household>;

@@ -2,6 +2,8 @@ import { appConfig } from '../../data/app-config';
 import { LocalV2Repository } from '../../repositories/local/local-v2.repository';
 import type {
   CloudAuthState,
+  CloudAccountDeletionRequest,
+  CloudDataExportArtifact,
   CloudHousehold,
   CloudHouseholdMember,
   CloudHouseholdRole,
@@ -156,6 +158,26 @@ export class CloudSyncService {
     const state = this.local.auth();
     this.local.saveAuth({ ...state, households: state.households.map((item) => item.id === household.id ? household : item) });
     await this.hydrateHousehold(auth.accessToken, auth.householdId);
+  }
+
+  async createDataExport(): Promise<CloudDataExportArtifact> {
+    const auth = this.requireCloudSession();
+    return this.gateway().createDataExport(auth.accessToken);
+  }
+
+  async requestAccountDeletion(confirmation: string): Promise<CloudAccountDeletionRequest> {
+    const auth = this.requireCloudSession();
+    return this.gateway().requestAccountDeletion(auth.accessToken, confirmation);
+  }
+
+  async accountDeletionStatus(): Promise<CloudAccountDeletionRequest> {
+    const auth = this.requireCloudSession();
+    return this.gateway().accountDeletionStatus(auth.accessToken);
+  }
+
+  async cancelAccountDeletion(): Promise<CloudAccountDeletionRequest> {
+    const auth = this.requireCloudSession();
+    return this.gateway().cancelAccountDeletion(auth.accessToken);
   }
 
   conflicts(): LocalConflict[] {

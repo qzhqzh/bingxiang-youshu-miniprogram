@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="page-title">数据与账号</view>
+  <view class="page-subtitle">你的数据权利不是一句说明，而是可执行、可追踪且默认脱敏的流程。</view>
+
+  <view wx:if="{{loading}}" class="card loading-card">正在读取账号状态…</view>
+  <view wx:else>
+    <view wx:if="{{error}}" class="error-card">{{error}}</view>
+    <view wx:if="{{mode === 'guest'}}" class="notice">当前是游客本地模式，没有云端账号。你仍可在“我的”中导出或清空本机数据；这里不会触发登录或网络请求。</view>
+    <block wx:else>
+      <view class="section">
+        <view class="section-title">导出我的云端数据</view>
+        <view class="card rights-card">
+          <view>导出包含你当前有权读取的家庭共享事实，以及只属于你的食谱进度和偏好。不会包含身份 subject、token、设备指纹、邀请密钥或其他成员个人偏好。</view>
+          <button class="btn-primary" disabled="{{busy || !available || deletionPending}}" loading="{{busy}}" bindtap="createExport">生成并复制 JSON</button>
+          <view wx:if="{{exportId}}" class="result-box" bindtap="copyExport"><text>导出已生成</text><text>有效至 {{exportExpiresText}} · 点此再次复制</text></view>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-title">账号注销</view>
+        <view class="card danger-card">
+          <view wx:if="{{deletionPending}}">
+            <view class="danger-title">注销申请正在冷静期</view>
+            <view>预计执行时间：{{deletionExecuteText}}。当前设备只能查看或取消申请，其他设备会话已撤销。</view>
+            <button class="btn-secondary" disabled="{{busy}}" bindtap="cancelDeletion">取消注销</button>
+          </view>
+          <view wx:else>
+            <view class="danger-title">删除云端账号与个人状态</view>
+            <view>家庭所有者必须先转移或删除家庭。共享库存、购物和做菜审计不会被破坏，操作者会匿名显示为“已注销成员”。</view>
+            <input class="confirm-input" value="{{confirmation}}" placeholder="请输入：注销账号" maxlength="4" bindinput="inputConfirmation" />
+            <button class="btn-danger" disabled="{{busy || !available || confirmation !== '注销账号'}}" loading="{{busy}}" bindtap="requestDeletion">申请注销账号</button>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{!available}}" class="notice">当前安装包的云端开关关闭，以上操作不会发出请求。</view>
+    </block>
+  </view>
+</view>

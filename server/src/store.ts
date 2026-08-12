@@ -1,5 +1,8 @@
 import type {
   AuthIdentity,
+  AccountDeletionRequest,
+  AuditLog,
+  DataExportArtifact,
   DeviceSession,
   Household,
   HouseholdMember,
@@ -47,6 +50,9 @@ export class InMemoryV2Store {
   readonly processedMutations = new Map<string, ProcessedMutation>();
   readonly migrations = new Map<string, MigrationSummary>();
   readonly changes = new Map<string, SyncChange[]>();
+  readonly dataExports = new Map<string, DataExportArtifact>();
+  readonly deletionRequests = new Map<string, AccountDeletionRequest>();
+  readonly auditLogs = new Map<string, AuditLog>();
   readonly minimumCursors = new Map<string, number>();
   private readonly householdLocks = new Map<string, Promise<void>>();
 

@@ -268,3 +268,56 @@ export interface MigrationSummary {
   checksum: string;
   status: 'prepared' | 'committed';
 }
+
+export interface DataExportHousehold {
+  scope: 'owner-full' | 'member-readable';
+  household: Household;
+  membership: HouseholdMember;
+  members: Array<Pick<HouseholdMember, 'userId' | 'role' | 'status' | 'joinedAt' | 'version'> & { displayName: string }>;
+  batches: ServerPantryBatch[];
+  movements: InventoryMovement[];
+  shoppingItems: ServerShoppingItem[];
+  cookingRecords: ServerCookingRecord[];
+  recipeProgress: ServerRecipeProgress[];
+  preferences: MemberPreferences;
+}
+
+export interface DataExportArtifact {
+  id: string;
+  userId: string;
+  status: 'ready' | 'expired';
+  createdAt: number;
+  expiresAt: number;
+  checksum: string;
+  payload: {
+    format: 'bingxiang-v2-user-export';
+    exportedAt: number;
+    user: User;
+    sessions: Array<Omit<DeviceSession, 'tokenHash' | 'deviceIdHash'>>;
+    households: DataExportHousehold[];
+    exclusions: string[];
+  };
+}
+
+export interface AccountDeletionRequest {
+  id: string;
+  userId: string;
+  status: 'pending' | 'cancelled' | 'completed' | 'blocked';
+  requestedAt: number;
+  executeAfter: number;
+  restrictedSessionId: string;
+  cancelledAt?: number;
+  completedAt?: number;
+  blockedReason?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actorUserId?: string;
+  householdId?: string;
+  action: string;
+  targetType?: string;
+  targetId?: string;
+  metadata: Record<string, unknown>;
+  createdAt: number;
+}

@@ -1,5 +1,7 @@
 import type {
   CloudHousehold,
+  CloudAccountDeletionRequest,
+  CloudDataExportArtifact,
   CloudHouseholdMember,
   CloudHouseholdRole,
   CloudInvitation,
@@ -70,6 +72,10 @@ export interface CloudAccountGateway extends RemoteSyncGateway {
   ): Promise<CloudHouseholdMember>;
   removeMember(accessToken: string, householdId: string, userId: string): Promise<void>;
   transferOwnership(accessToken: string, householdId: string, userId: string): Promise<CloudHousehold>;
+  createDataExport(accessToken: string): Promise<CloudDataExportArtifact>;
+  requestAccountDeletion(accessToken: string, confirmation: string): Promise<CloudAccountDeletionRequest>;
+  accountDeletionStatus(accessToken: string): Promise<CloudAccountDeletionRequest>;
+  cancelAccountDeletion(accessToken: string): Promise<CloudAccountDeletionRequest>;
 }
 
 interface ApiErrorBody {
@@ -154,6 +160,22 @@ export class WechatRemoteSyncGateway implements CloudAccountGateway {
 
   transferOwnership(accessToken: string, householdId: string, userId: string): Promise<CloudHousehold> {
     return this.request(`/v2/households/${encodeURIComponent(householdId)}/transfer-ownership`, 'POST', { userId }, accessToken);
+  }
+
+  createDataExport(accessToken: string): Promise<CloudDataExportArtifact> {
+    return this.request('/v2/me/export', 'POST', undefined, accessToken);
+  }
+
+  requestAccountDeletion(accessToken: string, confirmation: string): Promise<CloudAccountDeletionRequest> {
+    return this.request('/v2/me/deletion-request', 'POST', { confirmation }, accessToken);
+  }
+
+  accountDeletionStatus(accessToken: string): Promise<CloudAccountDeletionRequest> {
+    return this.request('/v2/me/deletion-request', 'GET', undefined, accessToken);
+  }
+
+  cancelAccountDeletion(accessToken: string): Promise<CloudAccountDeletionRequest> {
+    return this.request('/v2/me/deletion-request', 'DELETE', undefined, accessToken);
   }
 
   prepareMigration(accessToken: string, householdId: string, importBatchId: string, source: string): Promise<MigrationSummary> {

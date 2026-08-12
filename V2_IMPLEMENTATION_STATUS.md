@@ -1,7 +1,7 @@
 # 冰箱有数 2.0 实现状态
 
 更新时间：2026-08-13
-当前阶段：`2.0.0-alpha.1`，阶段 0/1 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
+当前阶段：`2.0.0-alpha.2`，阶段 0/1 与部分阶段 3 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
 
 本文用代码证据区分“已经完成”“已实现但尚未生产化”和“尚未实现”，避免把设计文档误读成上线事实。2.0 的完整目标仍以 [`V2_MULTI_USER_SYNC_DESIGN.md`](./V2_MULTI_USER_SYNC_DESIGN.md) 为准。
 
@@ -28,6 +28,9 @@
 | 冲突中心、显式重试/取消与成员变化永久拒绝 | [`miniprogram/pages/sync-conflicts/index.wxml`](./miniprogram/pages/sync-conflicts/index.wxml)、[`miniprogram/repositories/local/local-v2.repository.ts`](./miniprogram/repositories/local/local-v2.repository.ts) |
 | 家庭创建/切换/接受邀请与切换前原子下载 | [`miniprogram/pages/households/index.wxml`](./miniprogram/pages/households/index.wxml)、[`miniprogram/services/cloud/cloud-sync.service.ts`](./miniprogram/services/cloud/cloud-sync.service.ts) |
 | 成员列表、邀请分享、角色调整、移除与所有权转移 | [`miniprogram/pages/household-members/index.wxml`](./miniprogram/pages/household-members/index.wxml)、[`miniprogram/services/cloud/remote-sync.gateway.ts`](./miniprogram/services/cloud/remote-sync.gateway.ts) |
+| 可替换接口限流、哈希桶键、429 与 Retry-After | [`server/src/rate-limit.ts`](./server/src/rate-limit.ts)、[`server/src/app.ts`](./server/src/app.ts) |
+| 脱敏个人数据导出、注销冷静期/取消/执行与匿名共享审计 | [`server/src/service.ts`](./server/src/service.ts)、[`server/db/migrations/0002_privacy_jobs.sql`](./server/db/migrations/0002_privacy_jobs.sql) |
+| “数据与账号”页面及云端账号网关 | [`miniprogram/pages/account-data/index.wxml`](./miniprogram/pages/account-data/index.wxml)、[`miniprogram/services/cloud/cloud-sync.service.ts`](./miniprogram/services/cloud/cloud-sync.service.ts) |
 
 ## 已实现但尚未生产化
 
@@ -37,12 +40,14 @@
 - 2.0 同步、冲突、家庭和成员页面已可在开发包查看，但登录按钮在未配置生产环境时只解释当前状态，不会发出网络请求。
 - v2 信封可以可靠管理远端实体、Outbox 和冲突；现有 1.x `AppService` 尚未切换为“云模式命令总线”，因此不能开启真实云同步。
 - PostgreSQL 迁移未在真实 PostgreSQL 实例执行；目前只有静态契约门禁。
+- 数据导出与注销流程已在内存领域服务、HTTP、客户端和 PostgreSQL schema 层实现；生产 worker、加密对象存储、到期清理和备份删除边界尚未联调。
+- 当前默认限流器是单进程实现；多副本生产环境必须接同一接口的 Redis 实现，并完成容量与故障降级测试。
 
 ## 尚未实现
 
 1. 完整 PostgreSQL 查询/命令服务、API 运行时接线与真实数据库集成测试；事务执行器已有 `SELECT … FOR UPDATE`、cursor 和幂等提交边界。
-2. 速率限制、Redis 可选实现、结构化日志、指标与链路追踪。
-3. access token 轮换/续期、用户数据导出、注销冷静期与删除任务。
+2. Redis 分布式限流实现、结构化脱敏日志、指标与链路追踪。
+3. access token 轮换/续期；导出/注销生产 worker、加密存储、到期清理与删除恢复演练。
 4. 小程序主业务页面在云模式下经命令总线写 Outbox，并由远端 canonical 数据驱动 UI。
 5. 运营后台前端、客服受控操作、审计查询和双人审批。
 6. 生产/预发环境、HTTPS API 域名、备份恢复演练、告警和灾难恢复。
@@ -62,12 +67,12 @@ pnpm run release:check
 当前结果：
 
 - 1.x：19 项领域与闭环测试通过。
-- 2.0：38 项身份、RBAC、租户隔离、同步、并发库存、迁移、HTTP schema、家庭切换、PostgreSQL 事务边界和冲突处理测试通过。
-- 合计：57 项测试通过。
+- 2.0：44 项身份、RBAC、租户隔离、同步、并发库存、迁移、HTTP schema/限流、家庭切换、数据权利、PostgreSQL 事务边界和冲突处理测试通过。
+- 合计：63 项测试通过。
 - 小程序与服务端 TypeScript 严格检查通过。
-- 13 个小程序页面、132 个小程序文件通过静态检查。
+- 14 个小程序页面、136 个小程序文件通过静态检查。
 - OpenAPI、运行时 schema、数据库关键约束和 PostgreSQL 事务边界通过契约检查。
-- 同步状态、冲突中心、家庭空间和家庭成员页面已在微信开发者工具中完成专项渲染回归；结束后普通编译首页正常。
+- 同步状态、冲突中心、家庭空间、家庭成员和数据与账号页面已在微信开发者工具中完成专项渲染回归；结束后普通编译首页正常。
 - 提审配置保持 `devSeed=false`、`cloudSyncEnabled=false`，不会自动登录或联网。
 
 ## 进入真实联调前的最小外部条件

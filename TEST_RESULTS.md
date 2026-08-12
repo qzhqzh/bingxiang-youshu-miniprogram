@@ -105,3 +105,16 @@ pnpm run release:check
 - 在云同步关闭状态点击登录，只显示“云同步尚未开放”提示，未产生业务网络请求；调试控制台未发现应用业务异常。
 - `release:check` 结果：品牌=冰箱有数，AppID=`wxc62caa8eb9379ed4`，`devSeed=false`，`cloudSyncEnabled=false`，主包约 456.4 KiB。
 - 该 Alpha 未上传微信平台；稳定体验版仍为已上传的 1.2.0。
+
+## 2.0.0-alpha.2 数据权利与接口防护复验
+
+- 全量结果：1.x 19 项 + 2.0 44 项，共 63 passed，0 failed，0 skipped；小程序与服务端 TypeScript 严格检查 0 错误。
+- 接口限流：登录、邀请、同步 push、迁移、导出和注销均接入可替换限流契约；相同 IP/设备超额返回 429 与 `Retry-After`，不同设备桶隔离，测试证明桶 key 不含原始 IP/设备 ID。
+- 数据导出：只包含当前用户可读的家庭共享事实和本人进度/偏好；回归验证不包含 providerSubject、access token、设备原始 ID、token/device hash 字段。
+- 账号注销：回归覆盖 owner 前置阻止、所有权转移、其他会话撤销、受限会话贯穿冷静期、取消恢复、到期执行、身份映射删除、个人设置删除与共享做菜操作者匿名保留。
+- PostgreSQL migration 新增 `data_export_jobs`、`account_deletion_requests`、单用户唯一 pending 约束与到期扫描索引；尚未在真实 PostgreSQL 实例执行。
+- 小程序新增“数据与账号”页；Remote Gateway 与 Service 已接入导出、注销状态、申请和取消接口。
+- 微信开发者工具专项启动实测：“数据与账号”游客模式标题、边界说明和本地模式提示正常，无网络请求或业务错误；专项验证后切回普通编译，首页正常。
+- 静态检查：14 个页面、14 个控制器、136 个小程序文件；JSON、WXML、资源和 Repository 边界均通过。
+- 发布安全门禁：品牌=冰箱有数，AppID=`wxc62caa8eb9379ed4`，`devSeed=false`，`cloudSyncEnabled=false`，API 地址为空，主包约 467.5 KiB。
+- 该 Alpha 未上传微信平台；稳定体验版仍为已上传的 1.2.0。生产 PostgreSQL、Redis/任务 worker、对象存储和真实双设备测试未完成。

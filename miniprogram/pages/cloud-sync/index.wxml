@@ -16,6 +16,7 @@
         <navigator url="/pages/households/index" class="status-row conflict-link"><text>家庭与成员</text><text>管理 ›</text></navigator>
         <view class="status-row"><text>待同步操作</text><text>{{status.pendingCount}}</text></view>
         <navigator url="/pages/sync-conflicts/index" class="status-row conflict-link"><text>需要处理的冲突</text><text>{{status.conflictCount}} · 查看 ›</text></navigator>
+        <navigator url="/pages/account-data/index" class="status-row conflict-link"><text>数据导出与账号注销</text><text>管理 ›</text></navigator>
         <view class="status-row"><text>最近同步</text><text>{{lastSyncText}}</text></view>
       </view>
     </view>

@@ -12,6 +12,8 @@ import {
 } from '../../miniprogram/services/cloud/remote-sync.gateway.js';
 import { SyncCoordinator } from '../../miniprogram/services/cloud/sync-coordinator.js';
 import type {
+  CloudAccountDeletionRequest,
+  CloudDataExportArtifact,
   CloudHousehold,
   CloudHouseholdMember,
   CloudHouseholdRole,
@@ -80,6 +82,10 @@ class FakeAccountGateway extends FakeGateway implements CloudAccountGateway {
   ];
   snapshots = new Map(this.households.map((item) => [item.id, snapshot(item, item.id === 'home' ? '小秦' : '妈妈')]));
   failBootstrapFor = '';
+  deletion: CloudAccountDeletionRequest = {
+    id: 'delete-1', userId: 'alice', status: 'pending', requestedAt: 1, executeAfter: 2,
+    restrictedSessionId: 'session-1',
+  };
 
   async login(): Promise<LoginResponse> {
     return { accessToken: 'cloud-token', expiresAt: Date.now() + 60_000, user: { id: 'alice', displayName: '小秦' }, households: this.households };
@@ -112,6 +118,21 @@ class FakeAccountGateway extends FakeGateway implements CloudAccountGateway {
   async transferOwnership(_token: string, householdId: string, userId: string): Promise<CloudHousehold> {
     const found = this.households.find((item) => item.id === householdId)!;
     return { ...found, ownerUserId: userId, version: found.version + 1 };
+  }
+  async createDataExport(): Promise<CloudDataExportArtifact> {
+    return {
+      id: 'export-1', userId: 'alice', status: 'ready', createdAt: 1, expiresAt: 2,
+      checksum: 'checksum', payload: { format: 'bingxiang-v2-user-export' },
+    };
+  }
+  async requestAccountDeletion(_token: string, confirmation: string): Promise<CloudAccountDeletionRequest> {
+    if (confirmation !== '注销账号') throw new Error('bad confirmation');
+    return this.deletion;
+  }
+  async accountDeletionStatus(): Promise<CloudAccountDeletionRequest> { return this.deletion; }
+  async cancelAccountDeletion(): Promise<CloudAccountDeletionRequest> {
+    this.deletion = { ...this.deletion, status: 'cancelled', cancelledAt: 2 };
+    return this.deletion;
   }
 }
 
@@ -307,5 +328,20 @@ describe('2.0 家庭切换客户端', () => {
     assert.equal(service.authState().activeHouseholdId, 'family');
     assert.equal(service.members()[0]?.displayName, '妈妈');
     assert.equal(local.envelope('home').outbox.length, 1);
+  });
+
+  it('44. 数据权利页面通过账号网关执行导出、注销申请与冷静期取消', async () => {
+    const local = new LocalV2Repository(new MemoryStorage(), () => 2_000);
+    const gateway = new FakeAccountGateway();
+    const service = new CloudSyncService(local, () => gateway, { cloudSyncEnabled: true, apiBaseUrl: 'https://api.example.test' });
+    await service.signIn();
+    const artifact = await service.createDataExport();
+    assert.equal(artifact.payload.format, 'bingxiang-v2-user-export');
+    const pending = await service.requestAccountDeletion('注销账号');
+    assert.equal(pending.status, 'pending');
+    assert.equal((await service.accountDeletionStatus()).id, pending.id);
+    const cancelled = await service.cancelAccountDeletion();
+    assert.equal(cancelled.status, 'cancelled');
+    assert.equal(service.authState().mode, 'cloud');
   });
 });

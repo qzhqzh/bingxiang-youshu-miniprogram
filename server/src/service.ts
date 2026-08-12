@@ -8,6 +8,9 @@ import { requirePermission, canAssignRole } from './rbac.js';
 import { checksum, hashSecret, newId, newOpaqueToken } from './security.js';
 import { InMemoryV2Store } from './store.js';
 import type {
+  AccountDeletionRequest,
+  AuditLog,
+  DataExportArtifact,
   Household,
   HouseholdMember,
   HouseholdRole,
@@ -34,6 +37,8 @@ export interface V2ServiceOptions {
   sessionTtlMs?: number;
   catalogVersion?: number;
   now?: () => number;
+  deletionCoolingMs?: number;
+  dataExportTtlMs?: number;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -57,6 +62,8 @@ export class V2Service {
   private readonly now: () => number;
   private readonly sessionTtlMs: number;
   private readonly catalogVersion: number;
+  private readonly deletionCoolingMs: number;
+  private readonly dataExportTtlMs: number;
 
   constructor(
     readonly store: InMemoryV2Store,
@@ -67,6 +74,8 @@ export class V2Service {
     this.now = options.now ?? Date.now;
     this.sessionTtlMs = options.sessionTtlMs ?? 2 * 60 * 60 * 1_000;
     this.catalogVersion = options.catalogVersion ?? 1;
+    this.deletionCoolingMs = options.deletionCoolingMs ?? 7 * 24 * 60 * 60 * 1_000;
+    this.dataExportTtlMs = options.dataExportTtlMs ?? 24 * 60 * 60 * 1_000;
   }
 
   async loginWechat(code: string, deviceId: string): Promise<LoginResult> {
@@ -117,12 +126,21 @@ export class V2Service {
   }
 
   authenticate(accessToken: string): SessionPrincipal {
+    const principal = this.authenticateForLifecycle(accessToken);
+    if (principal.user.status !== 'active') throw new ApiError('UNAUTHENTICATED', '账号正在注销或已不可用', 401);
+    return principal;
+  }
+
+  private authenticateForLifecycle(accessToken: string): SessionPrincipal {
     const tokenHash = hashSecret(accessToken ?? '');
     const session = [...this.store.sessions.values()].find((item) => item.tokenHash === tokenHash);
     if (!session) throw new ApiError('UNAUTHENTICATED', '登录状态无效', 401);
     if (session.revokedAt) throw new ApiError('SESSION_REVOKED', '当前设备会话已撤销', 401);
     if (session.expiresAt <= this.now()) throw new ApiError('UNAUTHENTICATED', '登录状态已过期', 401);
-    const user = this.requireActiveUser(session.userId);
+    const user = this.store.users.get(session.userId);
+    if (!user || (user.status !== 'active' && user.status !== 'deletionPending')) {
+      throw new ApiError('UNAUTHENTICATED', '账号不可用', 401);
+    }
     session.lastSeenAt = this.now();
     this.store.sessions.set(session.id, session);
     return { user, session };
@@ -146,6 +164,161 @@ export class V2Service {
     const target = this.store.sessions.get(sessionId);
     assertApi(target && target.userId === principal.user.id, 'NOT_FOUND', '没有找到这个设备会话', 404);
     this.store.sessions.set(target.id, { ...target, revokedAt: this.now() });
+  }
+
+  createDataExport(accessToken: string): DataExportArtifact {
+    const principal = this.authenticate(accessToken);
+    const exportedAt = this.now();
+    const sessions = [...this.store.sessions.values()]
+      .filter((item) => item.userId === principal.user.id)
+      .map(({ tokenHash: _tokenHash, deviceIdHash: _deviceIdHash, ...safe }) => safe)
+      .sort((left, right) => right.lastSeenAt - left.lastSeenAt);
+    const households = this.store.activeMemberships(principal.user.id).map((membership) => {
+      const household = this.requireHousehold(membership.householdId);
+      const members = this.store.activeMembers(household.id).map((member) => ({
+        userId: member.userId,
+        role: member.role,
+        status: member.status,
+        joinedAt: member.joinedAt,
+        version: member.version,
+        displayName: this.store.users.get(member.userId)?.displayName ?? '已注销成员',
+      }));
+      return {
+        scope: membership.role === 'owner' ? 'owner-full' as const : 'member-readable' as const,
+        household,
+        membership,
+        members,
+        batches: [...this.store.batches.values()].filter((item) => item.householdId === household.id && !item.deletedAt),
+        movements: [...this.store.movements.values()].filter((item) => item.householdId === household.id),
+        shoppingItems: [...this.store.shoppingItems.values()].filter((item) => item.householdId === household.id && !item.deletedAt),
+        cookingRecords: [...this.store.cookingRecords.values()].filter((item) => item.householdId === household.id),
+        recipeProgress: this.progressFor(household.id, principal.user.id).map((item) => this.asServerProgress(household.id, principal.user.id, item)),
+        preferences: this.preferencesFor(household.id, principal.user.id),
+      };
+    });
+    const payload: DataExportArtifact['payload'] = {
+      format: 'bingxiang-v2-user-export',
+      exportedAt,
+      user: principal.user,
+      sessions,
+      households,
+      exclusions: [
+        '微信 providerSubject 与认证 code',
+        '会话 token、设备指纹和邀请口令/哈希',
+        '其他成员的个人食谱进度与偏好',
+        '运营审计元数据与服务端密钥',
+      ],
+    };
+    const artifact: DataExportArtifact = {
+      id: newId('exp'),
+      userId: principal.user.id,
+      status: 'ready',
+      createdAt: exportedAt,
+      expiresAt: exportedAt + this.dataExportTtlMs,
+      checksum: checksum(JSON.stringify(payload)),
+      payload,
+    };
+    this.store.dataExports.set(artifact.id, artifact);
+    this.audit('user.export.created', principal.user.id, 'dataExport', artifact.id, {
+      householdCount: households.length,
+      expiresAt: artifact.expiresAt,
+    });
+    return artifact;
+  }
+
+  requestAccountDeletion(accessToken: string, confirmation: string): AccountDeletionRequest {
+    const principal = this.authenticate(accessToken);
+    assertApi(confirmation === '注销账号', 'VALIDATION_ERROR', '请完整输入“注销账号”确认');
+    const existing = [...this.store.deletionRequests.values()]
+      .find((item) => item.userId === principal.user.id && item.status === 'pending');
+    if (existing) return existing;
+    const ownedHouseholdIds = this.householdsFor(principal.user.id)
+      .filter((item) => item.ownerUserId === principal.user.id)
+      .map((item) => item.id);
+    assertApi(ownedHouseholdIds.length === 0, 'CONFLICT', '请先转移或删除你拥有的家庭', 409, { ownedHouseholdIds });
+    const requestedAt = this.now();
+    const request: AccountDeletionRequest = {
+      id: newId('del'),
+      userId: principal.user.id,
+      status: 'pending',
+      requestedAt,
+      executeAfter: requestedAt + this.deletionCoolingMs,
+      restrictedSessionId: principal.session.id,
+    };
+    this.store.deletionRequests.set(request.id, request);
+    this.store.users.set(principal.user.id, { ...principal.user, status: 'deletionPending' });
+    for (const session of this.store.sessions.values()) {
+      if (session.id === principal.session.id) {
+        this.store.sessions.set(session.id, { ...session, expiresAt: Math.max(session.expiresAt, request.executeAfter) });
+      } else if (session.userId === principal.user.id && !session.revokedAt) {
+        this.store.sessions.set(session.id, { ...session, revokedAt: requestedAt });
+      }
+    }
+    this.audit('user.deletion.requested', principal.user.id, 'user', principal.user.id, {
+      requestId: request.id,
+      executeAfter: request.executeAfter,
+    });
+    return request;
+  }
+
+  accountDeletionStatus(accessToken: string): AccountDeletionRequest {
+    const principal = this.authenticateForLifecycle(accessToken);
+    const request = [...this.store.deletionRequests.values()]
+      .filter((item) => item.userId === principal.user.id)
+      .sort((left, right) => right.requestedAt - left.requestedAt)[0];
+    assertApi(request, 'NOT_FOUND', '没有账号注销申请', 404);
+    return request;
+  }
+
+  cancelAccountDeletion(accessToken: string): AccountDeletionRequest {
+    const principal = this.authenticateForLifecycle(accessToken);
+    const request = this.accountDeletionStatus(accessToken);
+    assertApi(request.status === 'pending', 'CONFLICT', '当前注销申请不能取消', 409);
+    assertApi(request.executeAfter > this.now(), 'CONFLICT', '注销申请已进入执行阶段', 409);
+    const next: AccountDeletionRequest = { ...request, status: 'cancelled', cancelledAt: this.now() };
+    this.store.deletionRequests.set(next.id, next);
+    this.store.users.set(principal.user.id, { ...principal.user, status: 'active' });
+    this.audit('user.deletion.cancelled', principal.user.id, 'user', principal.user.id, { requestId: next.id });
+    return next;
+  }
+
+  /** 由受控后台任务调用；共享库存/做菜事实保留，身份映射与个人状态被删除或匿名化。 */
+  executeDueAccountDeletions(at = this.now()): AccountDeletionRequest[] {
+    const completed: AccountDeletionRequest[] = [];
+    for (const request of this.store.deletionRequests.values()) {
+      if (request.status !== 'pending' || request.executeAfter > at) continue;
+      const owned = [...this.store.households.values()].filter((item) => item.status === 'active' && item.ownerUserId === request.userId);
+      if (owned.length > 0) {
+        const blocked: AccountDeletionRequest = { ...request, status: 'blocked', blockedReason: 'OWNED_HOUSEHOLD_REMAINS' };
+        this.store.deletionRequests.set(blocked.id, blocked);
+        completed.push(blocked);
+        continue;
+      }
+      for (const membership of this.store.activeMemberships(request.userId)) {
+        const removed: HouseholdMember = { ...membership, status: 'removed', version: membership.version + 1 };
+        this.store.members.set(this.store.memberKey(membership.householdId, request.userId), removed);
+        this.store.appendChange(membership.householdId, 'member', request.userId, 'delete', removed.version, {
+          userId: request.userId,
+          displayName: '已注销成员',
+        }, at);
+      }
+      for (const [key, identity] of this.store.identities) if (identity.userId === request.userId) this.store.identities.delete(key);
+      for (const session of this.store.sessions.values()) {
+        if (session.userId === request.userId && !session.revokedAt) this.store.sessions.set(session.id, { ...session, revokedAt: at });
+      }
+      for (const [key, value] of this.store.preferences) if (value.userId === request.userId) this.store.preferences.delete(key);
+      for (const [key, value] of this.store.recipeProgress) if (value.userId === request.userId) this.store.recipeProgress.delete(key);
+      for (const [key, artifact] of this.store.dataExports) {
+        if (artifact.userId === request.userId) this.store.dataExports.set(key, { ...artifact, status: 'expired' });
+      }
+      const user = this.store.users.get(request.userId);
+      if (user) this.store.users.set(user.id, { ...user, displayName: '已注销成员', status: 'deleted', deletedAt: at });
+      const next: AccountDeletionRequest = { ...request, status: 'completed', completedAt: at };
+      this.store.deletionRequests.set(next.id, next);
+      this.audit('user.deletion.completed', request.userId, 'user', request.userId, { requestId: next.id });
+      completed.push(next);
+    }
+    return completed;
   }
 
   me(accessToken: string): User {
@@ -815,6 +988,26 @@ export class V2Service {
     const household = this.store.households.get(householdId);
     assertApi(household?.status === 'active', 'NOT_FOUND', '家庭空间不存在', 404);
     return household;
+  }
+
+  private audit(
+    action: string,
+    actorUserId: string | undefined,
+    targetType: string | undefined,
+    targetId: string | undefined,
+    metadata: Record<string, unknown> = {},
+  ): AuditLog {
+    const audit: AuditLog = {
+      id: newId('aud'),
+      ...(actorUserId ? { actorUserId } : {}),
+      action,
+      ...(targetType ? { targetType } : {}),
+      ...(targetId ? { targetId } : {}),
+      metadata,
+      createdAt: this.now(),
+    };
+    this.store.auditLogs.set(audit.id, audit);
+    return audit;
   }
 
   private requireActiveUser(userId: string): User {

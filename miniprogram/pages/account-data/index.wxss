@@ -1,0 +1,10 @@
+.rights-card, .danger-card { display:flex; flex-direction:column; gap:22rpx; padding:28rpx; color:#6B756F; font-size:23rpx; line-height:1.65; }
+.rights-card button, .danger-card button { width:100%; margin:0; }
+.result-box { display:flex; flex-direction:column; gap:8rpx; padding:20rpx; border-radius:16rpx; background:#E9F0EA; color:#24564A; }
+.result-box text:first-child { font-weight:700; }
+.result-box text:last-child { font-size:21rpx; }
+.danger-card { border:1rpx solid #E8CAC4; background:#FFFCF9; }
+.danger-title { color:#A64F48; font-size:28rpx; font-weight:700; }
+.confirm-input { box-sizing:border-box; width:100%; min-height:84rpx; padding:0 22rpx; border:1rpx solid #DECFC2; border-radius:16rpx; background:#FFF; color:#3C4F49; }
+.btn-danger { color:#FFF; background:#B85C54; }
+.notice { margin-top:26rpx; padding:24rpx; border-radius:18rpx; background:#F1E9DC; color:#786D60; font-size:23rpx; line-height:1.6; }

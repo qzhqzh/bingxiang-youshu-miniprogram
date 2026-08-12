@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 冰箱有数 2.0 API
-  version: 2.0.0-alpha.0
+  version: 2.0.0-alpha.2
   description: 家庭食材库存、成员权限、显式迁移与 local-first 增量同步接口。
 servers:
   - url: https://api.example.com/v2
@@ -13,6 +13,7 @@ tags:
   - name: Household
   - name: Sync
   - name: Migration
+  - name: Privacy
 paths:
   /auth/wechat:
     post:
@@ -88,6 +89,54 @@ paths:
       responses:
         '204': { description: 已撤销 }
         '404': { $ref: '#/components/responses/ApiError' }
+  /me/export:
+    post:
+      tags: [Privacy]
+      operationId: createDataExport
+      summary: 生成 24 小时有效的个人数据导出
+      description: 包含当前有权读取的共享家庭事实及本人进度/偏好，不包含身份标识、token、设备指纹、邀请密钥或其他成员个人偏好。
+      responses:
+        '201':
+          description: 导出已生成
+          content: { application/json: { schema: { $ref: '#/components/schemas/DataExportArtifact' } } }
+        '429': { $ref: '#/components/responses/ApiError' }
+  /me/deletion-request:
+    post:
+      tags: [Privacy]
+      operationId: requestAccountDeletion
+      summary: 申请账号注销并进入冷静期
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties: { confirmation: { type: string, const: 注销账号 } }
+      responses:
+        '202':
+          description: 注销申请已受理；当前会话只允许查看或取消申请
+          content: { application/json: { schema: { $ref: '#/components/schemas/AccountDeletionRequest' } } }
+        '409': { $ref: '#/components/responses/ApiError' }
+        '429': { $ref: '#/components/responses/ApiError' }
+    get:
+      tags: [Privacy]
+      operationId: getAccountDeletionRequest
+      responses:
+        '200':
+          description: 最近一次注销申请
+          content: { application/json: { schema: { $ref: '#/components/schemas/AccountDeletionRequest' } } }
+        '404': { $ref: '#/components/responses/ApiError' }
+    delete:
+      tags: [Privacy]
+      operationId: cancelAccountDeletion
+      summary: 冷静期内取消注销
+      responses:
+        '200':
+          description: 已取消并恢复账号
+          content: { application/json: { schema: { $ref: '#/components/schemas/AccountDeletionRequest' } } }
+        '409': { $ref: '#/components/responses/ApiError' }
   /households:
     get:
       tags: [Household]
@@ -380,6 +429,32 @@ components:
         expiresAt: { type: integer }
         lastSeenAt: { type: integer }
         revokedAt: { type: integer }
+    DataExportArtifact:
+      type: object
+      required: [id, userId, status, createdAt, expiresAt, checksum, payload]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        status: { type: string, enum: [ready, expired] }
+        createdAt: { type: integer }
+        expiresAt: { type: integer }
+        checksum: { type: string }
+        payload:
+          type: object
+          description: 当前用户有权导出的脱敏账号与家庭数据；不含 token、设备指纹、身份 subject 或邀请密钥。
+    AccountDeletionRequest:
+      type: object
+      required: [id, userId, status, requestedAt, executeAfter, restrictedSessionId]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        status: { type: string, enum: [pending, cancelled, completed, blocked] }
+        requestedAt: { type: integer }
+        executeAfter: { type: integer }
+        restrictedSessionId: { type: string }
+        cancelledAt: { type: integer }
+        completedAt: { type: integer }
+        blockedReason: { type: string }
     LoginResult:
       type: object
       required: [accessToken, expiresAt, user, households]

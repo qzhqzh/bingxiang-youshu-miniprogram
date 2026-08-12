@@ -2,6 +2,8 @@ import Fastify, { type FastifyError, type FastifyRequest } from 'fastify';
 import type { V2ApiService } from './api-service.js';
 import { ApiError } from './errors.js';
 import { schemas } from './http-schema.js';
+import { InMemoryRateLimiter, defaultRateLimitPolicies, type RateLimiter, type RateLimitPolicy, type RateLimitScope } from './rate-limit.js';
+import { hashSecret } from './security.js';
 import type { HouseholdRole, SyncCommand } from './types.js';
 
 function accessToken(request: FastifyRequest): string {
@@ -11,13 +13,40 @@ function accessToken(request: FastifyRequest): string {
   return token;
 }
 
-export function buildApp(service: V2ApiService) {
+export interface BuildAppOptions {
+  rateLimiter?: RateLimiter;
+  rateLimits?: Partial<Record<RateLimitScope, RateLimitPolicy>>;
+  now?: () => number;
+  trustProxy?: boolean;
+}
+
+export function buildApp(service: V2ApiService, options: BuildAppOptions = {}) {
+  const rateLimiter = options.rateLimiter ?? new InMemoryRateLimiter();
+  const now = options.now ?? Date.now;
+  const rateLimits = { ...defaultRateLimitPolicies, ...options.rateLimits };
   const app = Fastify({
     logger: false,
     requestIdHeader: 'x-request-id',
     bodyLimit: 2_100_000,
+    trustProxy: options.trustProxy ?? false,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: 'array', useDefaults: true } },
   });
+
+  function rateLimit(scope: RateLimitScope, identify: (request: FastifyRequest) => string) {
+    return async (request: FastifyRequest, reply: { header(name: string, value: string | number): unknown }) => {
+      const policy = rateLimits[scope];
+      const opaqueKey = hashSecret(`${scope}:${request.ip}:${identify(request)}`);
+      const decision = await rateLimiter.consume(opaqueKey, policy.limit, policy.windowMs, now());
+      reply.header('X-RateLimit-Remaining', decision.remaining);
+      if (!decision.allowed) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(decision.retryAfterMs / 1_000));
+        reply.header('Retry-After', retryAfterSeconds);
+        throw new ApiError('RATE_LIMITED', '请求过于频繁，请稍后重试', 429, { retryAfterSeconds });
+      }
+    };
+  }
+
+  const bearerIdentity = (request: FastifyRequest) => request.headers.authorization ?? 'anonymous';
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof ApiError) {
@@ -51,9 +80,12 @@ export function buildApp(service: V2ApiService) {
     });
   });
 
-  app.get('/healthz', async () => ({ ok: true, version: '2.0.0-alpha.0' }));
+  app.get('/healthz', async () => ({ ok: true, version: '2.0.0-alpha.2' }));
 
-  app.post('/v2/auth/wechat', { schema: schemas.login }, async (request) => {
+  app.post('/v2/auth/wechat', {
+    schema: schemas.login,
+    preHandler: rateLimit('login', (request) => (request.body as { deviceId?: string })?.deviceId ?? 'unknown-device'),
+  }, async (request) => {
     const body = request.body as { code?: string; deviceId?: string };
     return await service.loginWechat(body?.code ?? '', body?.deviceId ?? '');
   });
@@ -72,6 +104,20 @@ export function buildApp(service: V2ApiService) {
     await service.revokeSession(accessToken(request), sessionId);
     return reply.status(204).send();
   });
+  app.post('/v2/me/export', {
+    preHandler: rateLimit('privacyExport', bearerIdentity),
+  }, async (request, reply) => reply.status(201).send(await service.createDataExport(accessToken(request))));
+  app.post('/v2/me/deletion-request', {
+    schema: schemas.accountDeletion,
+    preHandler: rateLimit('privacyDeletion', bearerIdentity),
+  }, async (request, reply) => {
+    const body = request.body as { confirmation: string };
+    return reply.status(202).send(await service.requestAccountDeletion(accessToken(request), body.confirmation));
+  });
+  app.get('/v2/me/deletion-request', async (request) => await service.accountDeletionStatus(accessToken(request)));
+  app.delete('/v2/me/deletion-request', {
+    preHandler: rateLimit('privacyDeletion', bearerIdentity),
+  }, async (request) => await service.cancelAccountDeletion(accessToken(request)));
 
   app.get('/v2/households', async (request) => await service.listHouseholds(accessToken(request)));
   app.post('/v2/households', { schema: schemas.createHousehold }, async (request, reply) => {
@@ -87,7 +133,10 @@ export function buildApp(service: V2ApiService) {
     const { id } = request.params as { id: string };
     return await service.updateHousehold(accessToken(request), id, request.body as { name?: string; timezone?: string });
   });
-  app.post('/v2/households/:id/invitations', { schema: schemas.invitation }, async (request, reply) => {
+  app.post('/v2/households/:id/invitations', {
+    schema: schemas.invitation,
+    preHandler: rateLimit('invitationCreate', bearerIdentity),
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = request.body as { role?: Exclude<HouseholdRole, 'owner'>; maxUses?: number };
     const result = await service.createInvitation(accessToken(request), id, body?.role, body?.maxUses);
@@ -98,7 +147,9 @@ export function buildApp(service: V2ApiService) {
     await service.revokeInvitation(accessToken(request), id, invitationId);
     return reply.status(204).send();
   });
-  app.post('/v2/invitations/:token/accept', async (request) => {
+  app.post('/v2/invitations/:token/accept', {
+    preHandler: rateLimit('invitationAccept', bearerIdentity),
+  }, async (request) => {
     const { token } = request.params as { token: string };
     return await service.acceptInvitation(accessToken(request), token);
   });
@@ -122,17 +173,26 @@ export function buildApp(service: V2ApiService) {
     const { householdId } = request.query as { householdId: string };
     return await service.bootstrap(accessToken(request), householdId);
   });
-  app.post('/v2/sync/push', { schema: schemas.push }, async (request) => await service.push(accessToken(request), request.body as SyncCommand));
+  app.post('/v2/sync/push', {
+    schema: schemas.push,
+    preHandler: rateLimit('syncPush', bearerIdentity),
+  }, async (request) => await service.push(accessToken(request), request.body as SyncCommand));
   app.get('/v2/sync/pull', { schema: schemas.pullQuery }, async (request) => {
     const query = request.query as { householdId: string; cursor?: string; limit?: string };
     return await service.pull(accessToken(request), query.householdId, Number(query.cursor ?? 0), query.limit ? Number(query.limit) : undefined);
   });
 
-  app.post('/v2/migrations/v1/prepare', { schema: schemas.migration }, async (request) => {
+  app.post('/v2/migrations/v1/prepare', {
+    schema: schemas.migration,
+    preHandler: rateLimit('migration', bearerIdentity),
+  }, async (request) => {
     const body = request.body as { householdId: string; importBatchId: string; source: string };
     return await service.prepareV1Migration(accessToken(request), body.householdId, body.importBatchId, body.source);
   });
-  app.post('/v2/migrations/v1/commit', { schema: schemas.migration }, async (request) => {
+  app.post('/v2/migrations/v1/commit', {
+    schema: schemas.migration,
+    preHandler: rateLimit('migration', bearerIdentity),
+  }, async (request) => {
     const body = request.body as { householdId: string; importBatchId: string; source: string };
     return await service.commitV1Migration(accessToken(request), body.householdId, body.importBatchId, body.source);
   });

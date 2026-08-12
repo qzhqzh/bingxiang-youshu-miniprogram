@@ -138,6 +138,28 @@ export interface MigrationSummary {
   status: 'prepared' | 'committed';
 }
 
+export interface CloudDataExportArtifact {
+  id: string;
+  userId: string;
+  status: 'ready' | 'expired';
+  createdAt: number;
+  expiresAt: number;
+  checksum: string;
+  payload: Record<string, unknown>;
+}
+
+export interface CloudAccountDeletionRequest {
+  id: string;
+  userId: string;
+  status: 'pending' | 'cancelled' | 'completed' | 'blocked';
+  requestedAt: number;
+  executeAfter: number;
+  restrictedSessionId: string;
+  cancelledAt?: number;
+  completedAt?: number;
+  blockedReason?: string;
+}
+
 export interface CloudStatusView {
   mode: 'guest' | 'cloud';
   available: boolean;
