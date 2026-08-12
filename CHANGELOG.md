@@ -2,6 +2,15 @@
 
 本项目使用语义化版本号记录面向用户的变化。
 
+## 2.0.0-alpha.3 — PostgreSQL 一致性读模型
+
+- 新增 PostgreSQL 会话鉴权：access token 仅以 SHA-256 哈希查询，返回 principal 不暴露 token/设备哈希原值。
+- 新增按服务端成员关系限定的家庭列表、完整 bootstrap 与增量 pull 读模型；库存、流水、清单、做菜记录均强制携带 `household_id`，食谱进度和偏好额外按当前 `user_id` 隔离。
+- bootstrap 和 pull 在同一连接的 `REPEATABLE READ READ ONLY` 事务快照执行，防止跨表状态与 cursor 来自不同数据库时刻。
+- pull 支持 minimum cursor、`FULL_RESYNC_REQUIRED`、`limit + 1` 分页和单调 next cursor。
+- 新增 4 项 PostgreSQL 读模型测试；2.0 专项增至 48 项，全量增至 67 项。
+- 本机没有 Docker、`psql` 或 PostgreSQL 服务，因此本版本明确只证明 SQL 映射和事务边界；真实 migration/并发/回滚集成验证仍未完成。
+
 ## 2.0.0-alpha.2 — 数据权利与接口防护
 
 - 新增可替换 `RateLimiter`，对微信登录、邀请、同步 push、迁移、数据导出和注销按不同额度限流；返回标准 429、`Retry-After`，限流键只保留哈希。

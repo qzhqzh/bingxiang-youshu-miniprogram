@@ -13,6 +13,7 @@ const required = [
   'server/src/http-schema.ts',
   'server/src/rate-limit.ts',
   'server/src/postgres/mutation-executor.ts',
+  'server/src/postgres/query-store.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -60,5 +61,14 @@ for (const boundary of [
   'processed_mutations',
   'household_sync_cursors',
 ]) assert.ok(transactionSource.includes(boundary), `PostgreSQL 事务执行器缺少边界：${boundary}`);
+
+const queryStoreSource = readFileSync(join(root, 'server/src/postgres/query-store.ts'), 'utf8');
+for (const boundary of [
+  'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
+  "s.token_hash = decode($1, 'hex')",
+  "FROM pantry_batches WHERE household_id = $1",
+  "FROM recipe_progress WHERE household_id = $1 AND user_id = $2",
+  'FULL_RESYNC_REQUIRED',
+]) assert.ok(queryStoreSource.includes(boundary), `PostgreSQL 读模型缺少边界：${boundary}`);
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');

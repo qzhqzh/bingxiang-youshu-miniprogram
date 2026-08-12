@@ -118,3 +118,12 @@ pnpm run release:check
 - 静态检查：14 个页面、14 个控制器、136 个小程序文件；JSON、WXML、资源和 Repository 边界均通过。
 - 发布安全门禁：品牌=冰箱有数，AppID=`wxc62caa8eb9379ed4`，`devSeed=false`，`cloudSyncEnabled=false`，API 地址为空，主包约 467.5 KiB。
 - 该 Alpha 未上传微信平台；稳定体验版仍为已上传的 1.2.0。生产 PostgreSQL、Redis/任务 worker、对象存储和真实双设备测试未完成。
+
+## 2.0.0-alpha.3 PostgreSQL 一致性读模型复验
+
+- 新增 4 项 PostgreSQL 读模型测试；2.0 共 48 项，全量 67 passed，0 failed，0 skipped。
+- 会话鉴权测试证明数据库查询只接收 access token 的 SHA-256 哈希，返回 principal 的 token/device hash 固定脱敏，调用记录中不存在 token 原文。
+- bootstrap 映射覆盖家庭、成员、库存批次、不可变流水、购物清单、带 consumptions 的做菜记录、当前用户食谱进度/偏好与 cursor；测试逐条确认家庭事实查询首参数为 `household_id`，个人表同时使用 `user_id`。
+- pull 覆盖 minimum cursor 过期的 `FULL_RESYNC_REQUIRED`、`limit + 1` 分页、next cursor 和 catalogVersion。
+- Pool 模式验证使用单连接 `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`，成功 `COMMIT` 并释放连接；代码同时包含失败 `ROLLBACK` 路径。
+- 当前机器未发现 Docker、`psql` 或 PostgreSQL 服务，本轮没有把模拟 SQL 边界测试宣称为真实数据库集成测试。
