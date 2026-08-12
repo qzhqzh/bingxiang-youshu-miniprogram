@@ -1,0 +1,33 @@
+page { background: #F7F2E8; color: #183B33; font-size: 28rpx; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+view, text, button, input, picker, textarea { box-sizing: border-box; }
+.page { min-height: 100vh; padding: 28rpx 28rpx 160rpx; }
+.page-title { font-size: 44rpx; line-height: 1.25; font-weight: 750; letter-spacing: 1rpx; }
+.page-subtitle { margin-top: 10rpx; color: #6B756F; font-size: 26rpx; line-height: 1.55; }
+.section { margin-top: 36rpx; }
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.section-title { font-size: 32rpx; font-weight: 700; }
+.section-link { color: #24564A; font-size: 25rpx; font-weight: 600; }
+.card { background: #FFFEFA; border: 1rpx solid #E7DFD2; border-radius: 26rpx; box-shadow: 0 12rpx 30rpx rgba(36, 86, 74, .07); }
+.soft-card { background: #E8EFE8; border-radius: 28rpx; }
+.btn-primary { height: 88rpx; line-height: 88rpx; border: 0; border-radius: 20rpx; background: #24564A; color: #FFFFFF; font-size: 29rpx; font-weight: 650; box-shadow: 0 10rpx 22rpx rgba(36, 86, 74, .18); }
+.btn-primary::after, .btn-secondary::after, .btn-plain::after { border: 0; }
+.btn-primary[disabled] { background: #B9C7BF; color: #F4F5F2; box-shadow: none; }
+.btn-secondary { height: 76rpx; line-height: 76rpx; border: 2rpx solid #24564A; border-radius: 18rpx; background: #FFFEFA; color: #24564A; font-size: 27rpx; }
+.btn-plain { height: 68rpx; line-height: 68rpx; margin: 0; padding: 0 24rpx; border: 0; border-radius: 14rpx; background: #EFEAE0; color: #3E5F56; font-size: 25rpx; }
+.fixed-action { position: fixed; z-index: 20; left: 28rpx; right: 28rpx; bottom: calc(34rpx + env(safe-area-inset-bottom)); padding: 12rpx; border-radius: 24rpx; background: rgba(247,242,232,.94); }
+.chip-row { display: flex; gap: 14rpx; overflow-x: auto; white-space: nowrap; padding-bottom: 4rpx; }
+.chip { display: inline-flex; align-items: center; height: 62rpx; padding: 0 26rpx; border-radius: 999rpx; background: #EDE8DE; color: #647069; font-size: 25rpx; }
+.chip.active { background: #24564A; color: white; }
+.ingredient-icon { width: 76rpx; height: 76rpx; flex: none; }
+.muted { color: #6B756F; }
+.danger { color: #D96B62; }
+.warning { color: #B27A21; }
+.divider { height: 1rpx; background: #E7DFD2; }
+.loading-card { padding: 40rpx; text-align: center; color: #6B756F; }
+.error-card { padding: 32rpx; background: #FCEBE8; color: #9B4B45; border-radius: 20rpx; }
+.field { margin-bottom: 26rpx; }
+.field-label { display: block; margin-bottom: 12rpx; color: #3E5F56; font-size: 25rpx; }
+.field-control { width: 100%; min-height: 82rpx; padding: 22rpx 24rpx; border: 1rpx solid #DED5C7; border-radius: 18rpx; background: #FFFEFA; }
+.tag { display: inline-flex; align-items: center; padding: 7rpx 16rpx; border-radius: 999rpx; background: #E5EFE8; color: #24564A; font-size: 22rpx; }
+.tag.orange { background: #F7E2CD; color: #A4621F; }
+.tag.gray { background: #EEEDEA; color: #71766F; }

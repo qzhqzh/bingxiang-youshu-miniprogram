@@ -1,0 +1,19 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="card loading-card">正在读取批次…</view><view wx:elif="{{error}}" class="error-card">{{error}}</view>
+  <block wx:else>
+    <view class="ingredient-hero card"><image class="hero-icon" src="{{ingredient.icon}}"/><view><view class="page-title">{{ingredient.name}}</view><view class="total">共 {{total}}{{unitLabel}} · {{batches.length}} 个有效批次</view></view></view>
+    <view class="section"><view class="section-title">库存批次</view>
+      <block wx:if="{{batches.length}}">
+        <view class="batch-card card" wx:for="{{batches}}" wx:key="id">
+          <view class="batch-head"><view><text class="batch-date">{{item.purchasedAt}} 购入</text><text class="storage">{{item.storageLabel}}</text></view><freshness-badge state="{{item.freshnessState}}" label="{{item.freshnessLabel}}"/></view>
+          <view class="batch-quantity">剩余 {{item.quantity}}{{unitLabel}}</view><view class="fresh-meta">已保存 {{item.ageDays}} 天 · 建议保存 {{item.shelfLifeDays}} 天 · {{item.remainingText}}</view>
+          <view class="progress"><view class="progress-fill {{item.freshnessState}}" style="width:{{item.progress}}%"></view></view>
+          <view wx:if="{{item.note}}" class="note">备注：{{item.note}}</view><button class="discard" data-id="{{item.id}}" bindtap="discard">移出库存</button>
+        </view>
+      </block>
+      <empty-state wx:else title="这个食材已用完" description="补货后会在这里出现新的批次。"/>
+    </view>
+    <view class="safety-note">新鲜度是个人库存管理建议，不代表食品安全判定。请结合气味、外观和实际保存情况判断。</view>
+    <view class="fixed-action"><button class="btn-primary" bindtap="purchase">＋ 补货</button></view>
+  </block>
+</view>

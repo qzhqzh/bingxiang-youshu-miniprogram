@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "outDir": "tests-build",
+    "rootDir": ".",
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "miniprogram/typings/**/*.d.ts",
+    "miniprogram/domain/**/*.ts",
+    "miniprogram/data/**/*.ts",
+    "miniprogram/repositories/**/*.ts",
+    "miniprogram/services/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.d.ts"
+  ]
+}

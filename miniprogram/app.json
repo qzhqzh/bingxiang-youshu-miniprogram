@@ -1,0 +1,35 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/pantry/index",
+    "pages/recipes/index",
+    "pages/profile/index",
+    "pages/pantry-detail/index",
+    "pages/ingredient-purchase/index",
+    "pages/recipe-detail/index",
+    "pages/cook-confirm/index",
+    "pages/shopping-list/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#F7F2E8",
+    "navigationBarTitleText": "冰箱有数",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F7F2E8",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#6B756F",
+    "selectedColor": "#24564A",
+    "backgroundColor": "#FFFEFA",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "首页" },
+      { "pagePath": "pages/pantry/index", "text": "冰箱" },
+      { "pagePath": "pages/recipes/index", "text": "食谱" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

@@ -1,0 +1,1 @@
+<view class="badge {{state}}"><view class="dot"></view><text>{{label}}</text></view>

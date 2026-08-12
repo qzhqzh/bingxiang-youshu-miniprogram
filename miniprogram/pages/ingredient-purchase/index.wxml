@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="page-title">购入食材</view><view class="page-subtitle">每次购入形成独立批次，做菜时会优先使用建议到期更早的批次。</view>
+  <view wx:if="{{loading}}" class="card loading-card">正在准备表单…</view><view wx:elif="{{error}}" class="error-card">{{error}}</view>
+  <block wx:else>
+    <view wx:if="{{recent.length}}" class="section"><view class="section-title">最近购买</view><scroll-view scroll-x class="recent-scroll"><view class="recent-row"><view wx:for="{{recent}}" wx:key="id" class="recent-item {{ingredientId===item.id?'active':''}}" data-id="{{item.id}}" bindtap="chooseRecent"><image src="{{item.icon}}"/><text>{{item.name}}</text></view></view></scroll-view></view>
+    <view class="form-card card">
+      <view class="field"><text class="field-label">食材</text><picker mode="selector" range="{{ingredients}}" range-key="name" value="{{ingredientIndex}}" bindchange="onIngredientChange"><view class="field-control picker-value">{{ingredients[ingredientIndex].name}}<text>⌄</text></view></picker></view>
+      <view class="field"><text class="field-label">数量</text><view class="quantity-control"><input class="field-control" type="digit" value="{{quantity}}" placeholder="例如 300" data-field="quantity" bindinput="onInput"/><text class="unit">{{unitLabel}}</text></view></view>
+      <view class="field"><text class="field-label">购入日期</text><picker mode="date" value="{{purchasedAt}}" end="{{today}}" bindchange="onDateChange"><view class="field-control picker-value">{{purchasedAt}}<text>⌄</text></view></picker></view>
+      <view class="field"><text class="field-label">保存方式</text><picker mode="selector" range="{{storageOptions}}" range-key="name" value="{{storageIndex}}" bindchange="onStorageChange"><view class="field-control picker-value">{{storageOptions[storageIndex].name}}<text>⌄</text></view></picker></view>
+      <view class="field"><text class="field-label">自定义建议保鲜天数（可选）</text><input class="field-control" type="number" value="{{shelfLifeDaysOverride}}" placeholder="留空则使用食材默认值" data-field="shelfLifeDaysOverride" bindinput="onInput"/></view>
+      <view class="field"><text class="field-label">备注（可选）</text><textarea class="field-control textarea" value="{{note}}" maxlength="80" placeholder="例如：周末菜市场购入" data-field="note" bindinput="onInput"/></view>
+    </view>
+    <view class="fixed-action"><button class="btn-primary" bindtap="submit">记入冰箱</button></view>
+  </block>
+</view>

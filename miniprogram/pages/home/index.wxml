@@ -1,0 +1,29 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="card loading-card">正在清点你的冰箱…</view>
+  <view wx:elif="{{error}}" class="error-card">{{error}}<button class="btn-plain retry" bindtap="load">重试</button></view>
+  <block wx:else>
+    <view class="hero soft-card">
+      <view class="brand-lockup"><image src="/assets/png/app-logo-v2.png"/><text>冰箱有数 · 今日建议</text></view><view class="page-title">{{greeting}}</view>
+      <view class="stats"><view><text class="stat-number">{{kindCount}}</text><text class="stat-label">库存种类</text></view><view class="stat-line"></view><view><text class="stat-number accent">{{priorityCount}}</text><text class="stat-label">未来 3 天优先</text></view></view>
+      <view class="hero-actions"><button class="hero-btn primary" bindtap="goPurchase">＋ 购入食材</button><button class="hero-btn" bindtap="goShopping">购物清单</button></view>
+    </view>
+    <view class="section">
+      <view class="section-head"><text class="section-title">今天先吃什么</text><text class="section-link" bindtap="goPantry">查看冰箱 ›</text></view>
+      <scroll-view wx:if="{{priority.length}}" scroll-x class="priority-scroll" enable-flex>
+        <view class="priority-card card" wx:for="{{priority}}" wx:key="ingredientId" data-id="{{item.ingredientId}}" bindtap="openIngredient">
+          <image class="priority-icon" src="{{item.icon}}"/><freshness-badge state="{{item.freshnessState}}" label="{{item.freshnessLabel}}"/>
+          <view class="priority-name">{{item.name}}</view><view class="priority-quantity">还剩 {{item.quantityText}}</view><view class="priority-advice">{{item.urgencyText}}</view>
+        </view>
+      </scroll-view>
+      <empty-state wx:else title="未来 3 天没有紧急食材" description="状态很好，按自己的节奏安排就可以。" image="/assets/png/fresh.png"/>
+    </view>
+    <view class="section">
+      <view class="section-head"><text class="section-title">冰箱里能做什么</text><text class="section-link" bindtap="goRecipes">全部食谱 ›</text></view>
+      <view class="recipe-card card" wx:for="{{recipes}}" wx:key="id" data-id="{{item.id}}" bindtap="openRecipe">
+        <view class="recipe-top"><view><view class="recipe-name">{{item.name}}</view><view class="recipe-meta">{{item.durationMin}} 分钟 · 难度 {{item.difficultyText}}</view></view><view class="recipe-action {{item.canCook ? 'ready' : ''}}">{{item.actionText}}</view></view>
+        <view class="match-line"><view class="match-track"><view class="match-fill" style="width:{{item.availabilityPercent}}%"></view></view><text>{{item.matchedCount}}/{{item.requiredCount}}</text></view>
+        <view class="missing">{{item.missingText}}</view>
+      </view>
+    </view>
+  </block>
+</view>

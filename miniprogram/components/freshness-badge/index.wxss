@@ -1,0 +1,4 @@
+.badge { display:inline-flex; align-items:center; gap:8rpx; padding:8rpx 16rpx; border-radius:999rpx; font-size:22rpx; }
+.dot { width:10rpx; height:10rpx; border-radius:50%; background:currentColor; }
+.fresh { background:#DFECE2; color:#24564A; }.good { background:#EEF1E8; color:#737D50; }
+.useSoon { background:#FFF1D7; color:#A86E18; }.overdue { background:#FBE9E7; color:#B55149; }

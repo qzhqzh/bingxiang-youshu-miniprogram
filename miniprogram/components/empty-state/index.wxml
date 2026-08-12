@@ -1,0 +1,1 @@
+<view class="empty"><image class="image" src="{{image}}" mode="aspectFit"/><view class="title">{{title}}</view><view class="description">{{description}}</view><button wx:if="{{actionText}}" class="action" bindtap="onAction">{{actionText}}</button></view>

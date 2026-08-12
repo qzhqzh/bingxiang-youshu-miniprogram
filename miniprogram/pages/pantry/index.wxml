@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="page-title">我的冰箱</view><view class="page-subtitle">每样食材心里有数，点开查看每一个购入批次</view>
+  <scroll-view scroll-x class="filter-scroll"><view class="chip-row"><view wx:for="{{filters}}" wx:key="id" class="chip {{filter===item.id?'active':''}}" data-id="{{item.id}}" bindtap="setFilter">{{item.name}}</view></view></scroll-view>
+  <scroll-view scroll-x class="category-scroll"><view class="chip-row small"><view wx:for="{{categories}}" wx:key="id" class="chip {{category===item.id?'active':''}}" data-id="{{item.id}}" bindtap="setCategory">{{item.name}}</view></view></scroll-view>
+  <view wx:if="{{loading}}" class="card loading-card">正在清点冰箱…</view>
+  <view wx:elif="{{error}}" class="error-card">{{error}}<button class="btn-plain" bindtap="load">重试</button></view>
+  <view wx:elif="{{items.length}}" class="pantry-list">
+    <view class="pantry-card card" wx:for="{{items}}" wx:key="ingredientId" data-id="{{item.ingredientId}}" bindtap="open">
+      <image class="ingredient-icon" src="{{item.icon}}"/><view class="pantry-main"><view class="name-row"><text class="name">{{item.name}}</text><freshness-badge state="{{item.freshnessState}}" label="{{item.freshnessLabel}}"/></view><view class="quantity">{{item.quantityText}} · {{item.batchCount}} 个批次</view><view class="meta">{{item.storageLabel}} · {{item.urgencyText}}</view></view>
+      <view class="quick-actions"><button class="use" catchtap="useIngredient">使用</button><button class="restock" catchtap="purchase" data-id="{{item.ingredientId}}">补货</button></view>
+    </view>
+  </view>
+  <empty-state wx:else title="冰箱里还没有食材" description="记下第一批食材，新鲜度提醒和食谱推荐就会开始工作。" actionText="记下第一份食材" bind:action="purchase"/>
+  <view class="fixed-action"><button class="btn-primary" bindtap="purchase">＋ 购入食材</button></view>
+</view>

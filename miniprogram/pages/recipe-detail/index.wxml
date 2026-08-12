@@ -1,0 +1,15 @@
+<view class="page detail-page">
+  <view wx:if="{{loading}}" class="card loading-card">正在准备食谱…</view><view wx:elif="{{error}}" class="error-card">{{error}}<button class="btn-plain retry" bindtap="load">重试</button></view>
+  <block wx:else>
+    <view class="recipe-hero"><view class="cover"><image src="/assets/png/recipe.png"/></view><view class="status {{progress.status}}">{{statusLabel}}</view><view class="page-title">{{recipe.name}}</view><view class="page-subtitle">{{recipe.description}}</view><view class="metrics"><view><text class="metric-value">{{recipe.durationMin}}</text><text>分钟</text></view><view><text class="metric-value">{{recipe.difficulty}}</text><text>难度</text></view><view><text class="metric-value">{{recipe.servings}}</text><text>份量</text></view><view><text class="metric-value">{{availabilityText}}</text><text>库存满足</text></view></view></view>
+    <button wx:if="{{progress.status==='unlockable'}}" class="unlock-btn" bindtap="unlock"><image src="/assets/png/unlock-recipe.png"/>解锁并加入已掌握</button>
+    <view wx:elif="{{progress.status==='locked'}}" class="locked-note">🔒 先完成前置条件，食谱就会变为可解锁</view>
+    <view class="section"><view class="section-head"><text class="section-title">配料</text><text wx:if="{{availability.missing.length}}" class="section-link" bindtap="addMissing">缺料加入购物清单</text></view>
+      <view class="ingredient-list card"><view class="ingredient-row" wx:for="{{ingredients}}" wx:key="ingredientId"><image src="{{item.icon}}"/><view class="ingredient-name"><text>{{item.name}}</text><text wx:if="{{item.optional}}" class="optional">可选</text></view><view class="amount"><text>{{item.amount}}{{item.unitLabel}}</text><text class="available {{item.enough?'enough':item.optional?'optional-missing':'short'}}">仓库 {{item.available}}{{item.unitLabel}}</text></view></view></view>
+    </view>
+    <view class="section"><view class="section-title">烹调步骤</view><view class="step card" wx:for="{{recipe.steps}}" wx:key="order"><view class="step-number">{{item.order}}</view><view class="step-content">{{item.content}}<text wx:if="{{item.durationMin}}" class="duration">约 {{item.durationMin}} 分钟</text></view></view></view>
+    <view wx:if="{{substitutions.length}}" class="section"><view class="section-title">可替换食材</view><view class="substitution card" wx:for="{{substitutions}}" wx:key="fromIngredientId"><view><text>{{item.fromName}}</text><text class="swap">→</text><text>{{item.toName}}</text></view><text wx:if="{{item.note}}" class="sub-note">{{item.note}}</text></view></view>
+    <view class="section"><view class="section-title">注意事项</view><view class="caution-card"><view wx:for="{{recipe.cautions}}" wx:key="*this">• {{item}}</view></view></view>
+    <view class="fixed-action"><button class="btn-primary" disabled="{{!canStartCooking}}" bindtap="startCook">{{startButtonText}}</button></view>
+  </block>
+</view>

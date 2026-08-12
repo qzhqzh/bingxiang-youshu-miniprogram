@@ -1,0 +1,4 @@
+node_modules/
+tests-build/
+*.zip
+project.private.config.json

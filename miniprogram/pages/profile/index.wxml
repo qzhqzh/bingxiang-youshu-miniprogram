@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="profile-head"><image src="/assets/png/app-logo-v2.png"/><view><view class="page-title">冰箱有数</view><view class="page-subtitle">家里有什么、今天吃什么，心里都有数</view></view></view>
+  <view wx:if="{{loading}}" class="card loading-card">正在汇总数据…</view><view wx:elif="{{error}}" class="error-card">{{error}}</view>
+  <block wx:else>
+    <view class="stats card"><view><text>{{kindCount}}</text><text class="stat-label">食材种类</text></view><view><text>{{masteredCount}}</text><text class="stat-label">已掌握食谱</text></view><view><text>{{monthlyCookCount}}</text><text class="stat-label">本月做菜</text></view></view>
+    <view class="section"><view class="section-title">偏好设置</view><view class="settings card">
+      <picker mode="selector" range="{{reminderOptions}}" value="{{reminderIndex}}" bindchange="onReminderChange"><view class="setting-row"><view><text>新鲜度提醒范围</text><text class="setting-label">首页优先食材的提示范围</text></view><view class="value">未来 {{reminderOptions[reminderIndex]}} 天 ›</view></view></picker>
+      <view class="divider"></view>
+      <picker mode="selector" range="{{storageOptions}}" range-key="name" value="{{storageIndex}}" bindchange="onStorageChange"><view class="setting-row"><view><text>默认保存方式</text><text class="setting-label">购入页的默认选项</text></view><view class="value">{{storageOptions[storageIndex].name}} ›</view></view></picker>
+    </view></view>
+    <view class="section"><view class="section-title">数据与工具</view><view class="settings card"><view class="setting-row" bindtap="openShopping"><view><text>购物清单</text><text class="setting-label">缺料与待购食材</text></view><view class="value">›</view></view><view class="divider"></view><view class="setting-row" bindtap="exportData"><view><text>导出 JSON</text><text class="setting-label">复制全部本地数据，共 {{recordCount}} 条做菜记录</text></view><view class="value">复制 ›</view></view><view class="divider"></view><view class="setting-row danger-row" bindtap="resetData"><view><text>清空全部数据</text><text class="setting-label">删除本机库存、进度、记录与清单</text></view><view class="value">清空 ›</view></view></view></view>
+    <view class="privacy-card card"><text class="privacy-title">数据只在当前设备</text><text>库存、做菜记录和购物清单保存在微信本地空间，不会上传到服务器。</text></view>
+    <view class="about"><image src="/assets/png/app-logo-v2.png"/><text>冰箱有数 1.1 · 本地优先</text><text>冰箱有数，吃饭不愁。</text><text>新鲜度仅为个人库存管理建议，不构成食品安全判断。</text></view>
+  </block>
+</view>

@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="page-title">购物清单</view><view class="page-subtitle">缺料可从食谱一键加入；买到后直接转成真实库存批次。</view>
+  <view class="manual card"><picker mode="selector" range="{{ingredients}}" range-key="name" value="{{ingredientIndex}}" bindchange="onIngredientChange"><view class="select">{{ingredients[ingredientIndex].name || '选择食材'}}⌄</view></picker><input type="digit" value="{{manualQuantity}}" placeholder="数量" bindinput="onQuantityInput"/><button bindtap="addManual">加入</button></view>
+  <view wx:if="{{loading}}" class="card loading-card">正在读取清单…</view><view wx:elif="{{error}}" class="error-card">{{error}}</view>
+  <view wx:elif="{{items.length}}" class="shopping-list">
+    <view class="shopping-card card {{item.checked?'checked':''}}" wx:for="{{items}}" wx:key="id">
+      <view class="check" data-id="{{item.id}}" data-checked="{{item.checked}}" bindtap="toggle">{{item.checked?'✓':''}}</view><image src="{{item.ingredient.icon}}"/>
+      <view class="shopping-main"><view class="name">{{item.ingredient.name}}</view><view class="meta">建议 {{item.suggestedQuantity}}{{item.unitLabel}} · 来自 {{item.sourceRecipeName}}</view></view>
+      <view class="actions"><button data-id="{{item.id}}" bindtap="purchase">转购入</button><text data-id="{{item.id}}" bindtap="remove">删除</text></view>
+    </view>
+  </view>
+  <empty-state wx:else title="购物清单是空的" description="可手动添加，也可以从食谱的缺料清单一键加入。" image="/assets/png/shopping.png" actionText="直接购入食材" bind:action="goPurchase"/>
+</view>

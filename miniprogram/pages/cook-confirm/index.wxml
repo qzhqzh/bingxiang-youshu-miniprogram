@@ -1,0 +1,17 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="card loading-card">正在按 FEFO 匹配批次…</view><view wx:elif="{{error}}" class="error-card">{{error}}</view>
+  <block wx:else>
+    <view class="cook-head card"><view><view class="eyebrow">本次烹饪</view><view class="page-title">{{recipe.name}}</view></view><view class="servings"><button data-delta="-1" bindtap="changeServings">−</button><text>{{servings}} 份</text><button data-delta="1" bindtap="changeServings">＋</button></view></view>
+    <view class="fefo-note"><image src="/assets/png/timer.png"/><view><text>已按预计到期日优先匹配</text><text>确认前仅预览，不会修改实际库存。</text></view></view>
+    <view class="section"><view class="section-head"><text class="section-title">预计扣减</text><text class="match {{preview.canComplete?'ready':'short'}}">{{preview.canComplete?'必选食材齐全':'仍有缺口'}}</text></view>
+      <view class="consume card" wx:for="{{group}}" wx:key="ingredientId">
+        <view class="consume-head"><image src="{{item.icon}}"/><view class="consume-name"><text>{{item.name}}</text><text wx:if="{{item.optional}}" class="optional">可选</text></view><view class="numbers {{item.enough?'':'short'}}">{{item.used}} / {{item.required}}{{item.unitLabel}}</view></view>
+        <view wx:if="{{item.batches.length}}" class="batch-allocation"><view wx:for="{{item.batches}}" wx:key="pantryBatchId"><text>{{item.purchasedAt}} 批次</text><text>− {{item.quantity}}{{item.unitLabel}}</text></view></view>
+        <view wx:else class="no-stock">{{item.optional?'可选配料不足，不影响烹饪':'仓库中没有可用库存'}}</view>
+      </view>
+    </view>
+    <button wx:if="{{!preview.canComplete}}" class="btn-secondary missing-btn" bindtap="addMissing">把缺少的必选食材加入购物清单</button>
+    <view class="commit-note">完成后：扣减批次库存 · 用尽批次标记 consumed · 生成 CookingRecord · 做菜次数 +1</view>
+    <view class="fixed-action"><button class="btn-primary" disabled="{{!preview.canComplete || completing}}" bindtap="complete">{{completing?'正在提交…':'完成烹饪并扣库存'}}</button></view>
+  </block>
+</view>
