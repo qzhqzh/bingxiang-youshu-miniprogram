@@ -8,7 +8,8 @@
     "pages/ingredient-purchase/index",
     "pages/recipe-detail/index",
     "pages/cook-confirm/index",
-    "pages/shopping-list/index"
+    "pages/shopping-list/index",
+    "pages/cloud-sync/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#F7F2E8",

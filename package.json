@@ -1,6 +1,6 @@
 {
   "name": "bingxiang-youshu-miniprogram",
-  "version": "1.2.0",
+  "version": "2.0.0-alpha.0",
   "private": true,
   "description": "冰箱有数——家庭食材库存、新鲜度提醒与食谱匹配微信小程序",
   "keywords": [
@@ -24,13 +24,27 @@
   "packageManager": "pnpm@11.16.0",
   "type": "module",
   "scripts": {
-    "test": "node scripts/run-tests.mjs",
-    "typecheck": "tsc --noEmit",
-    "check": "node scripts/static-check.mjs",
-    "release:check": "node scripts/static-check.mjs && node scripts/release-check.mjs",
-    "release:check:placeholder": "node scripts/static-check.mjs && node scripts/release-check.mjs --allow-placeholder"
+    "test": "pnpm run test:v1 && pnpm run test:v2",
+    "test:v1": "node scripts/run-tests.mjs",
+    "test:v2": "node --import tsx --test server/tests/v2.test.ts server/tests/client-sync.test.ts",
+    "typecheck": "pnpm run typecheck:mini && pnpm run typecheck:server",
+    "typecheck:mini": "tsc --noEmit",
+    "typecheck:server": "tsc -p server/tsconfig.json --noEmit",
+    "dev:api": "tsx watch server/src/index.ts",
+    "start:api": "tsx server/src/index.ts",
+    "db:migrate": "tsx server/src/migrate.ts",
+    "check": "node scripts/static-check.mjs && node scripts/v2-contract-check.mjs",
+    "release:check": "node scripts/static-check.mjs && node scripts/v2-contract-check.mjs && node scripts/release-check.mjs",
+    "release:check:placeholder": "node scripts/static-check.mjs && node scripts/v2-contract-check.mjs && node scripts/release-check.mjs --allow-placeholder"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.21.0",
+    "tsx": "^4.23.12",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "fastify": "^5.11.3",
+    "pg": "^8.23.0"
   }
 }

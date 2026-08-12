@@ -8,6 +8,8 @@ import type {
   RecipeProgress,
   ShoppingItem,
 } from '../domain/models';
+import type { PullPage, PushResult, SyncCommand } from '../v2/models';
+import type { BootstrapResponse } from '../services/cloud/remote-sync.gateway';
 
 export interface AppSnapshot {
   ingredients: Ingredient[];
@@ -38,5 +40,10 @@ export interface AppRepository {
   clear(): void;
 }
 
-// 第二阶段的云端实现需遵守同一契约；页面与领域层无需改动。
-export interface CloudRepository extends AppRepository {}
+// 网络天然异步，2.0 不再让 CloudRepository 伪装成同步的 AppRepository。
+// 页面仍只依赖 Service；SyncCoordinator 通过这个边界访问远端 canonical 数据。
+export interface CloudRepository {
+  bootstrap(accessToken: string, householdId: string): Promise<BootstrapResponse>;
+  push(accessToken: string, command: SyncCommand): Promise<PushResult>;
+  pull(accessToken: string, householdId: string, cursor: number, limit?: number): Promise<PullPage>;
+}

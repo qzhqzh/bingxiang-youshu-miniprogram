@@ -1,0 +1,75 @@
+# 冰箱有数 2.0 实现状态
+
+更新时间：2026-08-13
+当前阶段：`2.0.0-alpha.0`，阶段 0/1 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
+
+本文用代码证据区分“已经完成”“已实现但尚未生产化”和“尚未实现”，避免把设计文档误读成上线事实。2.0 的完整目标仍以 [`V2_MULTI_USER_SYNC_DESIGN.md`](./V2_MULTI_USER_SYNC_DESIGN.md) 为准。
+
+## 已完成
+
+| 能力 | 当前证据 |
+|---|---|
+| 游客模式默认可用，不自动登录/联网 | `cloudSyncEnabled: false`；1.x 页面和本地 Repository 保持不变 |
+| 内部用户、微信身份、设备会话 | [`server/src/service.ts`](./server/src/service.ts)、[`server/src/wechat.ts`](./server/src/wechat.ts) |
+| 家庭空间与 owner/admin/member/viewer RBAC | [`server/src/rbac.ts`](./server/src/rbac.ts) |
+| 邀请、撤销、过期、次数与成员上限 | [`server/src/service.ts`](./server/src/service.ts) |
+| mutation 幂等、cursor pull、tombstone、完整重同步信号 | [`server/src/store.ts`](./server/src/store.ts)、[`server/src/service.ts`](./server/src/service.ts) |
+| 服务端 FEFO 跨批次扣减与并发串行化 | [`server/src/service.ts`](./server/src/service.ts) |
+| v1 显式预检/确认迁移、checksum、重复提交幂等 | [`server/src/service.ts`](./server/src/service.ts) |
+| 小程序 v2 原子家庭信封 | [`miniprogram/repositories/local/local-v2.repository.ts`](./miniprogram/repositories/local/local-v2.repository.ts) |
+| Outbox、退避、冲突箱、分页 pull、全量重建 | [`miniprogram/services/cloud/sync-coordinator.ts`](./miniprogram/services/cloud/sync-coordinator.ts) |
+| 版本化 HTTP 路由和统一错误体 | [`server/src/app.ts`](./server/src/app.ts) |
+| OpenAPI 初版契约 | [`server/openapi.yaml`](./server/openapi.yaml) |
+| PostgreSQL 初版 schema 与约束 | [`server/db/migrations/0001_v2_core.sql`](./server/db/migrations/0001_v2_core.sql) |
+| 小程序“家庭与云同步”状态/双重迁移确认页 | [`miniprogram/pages/cloud-sync/index.wxml`](./miniprogram/pages/cloud-sync/index.wxml) |
+
+## 已实现但尚未生产化
+
+- 服务端领域流程当前由 `InMemoryV2Store` 驱动，用于验证事务边界和接口契约。`NODE_ENV=production` 会主动拒绝启动，防止误用内存数据库。
+- PostgreSQL schema 和迁移执行器已经存在，但尚未实现 `PostgresV2Store`，API 还不能持久化真实数据。
+- 小程序 Remote Gateway 已实现 `wx.login`、Bearer API、push/pull 和迁移调用；正式配置保持关闭，API 域名为空。
+- 2.0 同步状态页已可在开发包查看，但登录按钮在未配置生产环境时只解释当前状态，不会发出网络请求。
+- v2 信封可以可靠管理远端实体、Outbox 和冲突；现有 1.x `AppService` 尚未切换为“云模式命令总线”，因此不能开启真实云同步。
+- PostgreSQL 迁移未在真实 PostgreSQL 实例执行；目前只有静态契约门禁。
+
+## 尚未实现
+
+1. PostgreSQL 持久化 Store、数据库事务中的 FEFO `SELECT … FOR UPDATE`、增量 cursor 分配与幂等提交。
+2. API 请求 schema 运行时校验、速率限制、Redis 可选实现、结构化日志、指标与链路追踪。
+3. access token 轮换/续期、用户数据导出、注销冷静期与删除任务。
+4. 小程序主业务页面在云模式下经命令总线写 Outbox，并由远端 canonical 数据驱动 UI。
+5. 家庭创建、切换、成员列表、邀请分享、角色调整、冲突处理页面。
+6. 运营后台前端、客服受控操作、审计查询和双人审批。
+7. 生产/预发环境、HTTPS API 域名、备份恢复演练、告警和灾难恢复。
+8. 两台真实设备并发、弱网/断网、成员移除和大数据量回归。
+9. 隐私协议最终文本、服务类目确认、微信隐私保护指引申报和主体合规复核。
+
+## 自动验证
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm test
+pnpm run check
+pnpm run release:check
+```
+
+当前结果：
+
+- 1.x：19 项领域与闭环测试通过。
+- 2.0：27 项身份、RBAC、租户隔离、同步、并发库存、迁移和小程序信封测试通过。
+- 合计：46 项测试通过。
+- 小程序与服务端 TypeScript 严格检查通过。
+- 10 个小程序页面、120 个小程序文件通过静态检查。
+- OpenAPI 核心路由和数据库关键约束通过契约检查。
+- 提审配置保持 `devSeed=false`、`cloudSyncEnabled=false`，不会自动登录或联网。
+
+## 进入真实联调前的最小外部条件
+
+- 微信小程序 AppID（已有）及管理员/开发者权限。
+- AppSecret：仅写入服务端密钥管理，不进入仓库、小程序包或聊天记录。
+- 已备案、可配置 HTTPS 证书的 API 域名，并加入微信 request 合法域名。
+- 独立的开发/预发 PostgreSQL 实例和安全连接串。
+- 主体、服务类目、用户隐私保护指引、隐私政策与注销/导出处理口径。
+
+满足这些条件后，仍应先完成 PostgreSQL Store 和预发验证，不能直接把当前 Alpha 开关改为 `true` 后提交生产。

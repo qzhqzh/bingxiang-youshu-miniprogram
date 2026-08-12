@@ -89,7 +89,7 @@ export function aggregateInventory(
       unit: ingredient.defaultUnit,
       batchCount: active.length,
       storageModes: Array.from(new Set(active.map((batch) => batch.storageMode))),
-      earliestFreshness: withFreshness[0].freshness,
+      earliestFreshness: withFreshness[0]!.freshness,
     };
   });
 }

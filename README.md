@@ -7,7 +7,7 @@
 
   冰箱有数，吃饭不愁。
 
-  微信原生小程序 · TypeScript · 本地优先 · 无需登录
+  微信原生小程序 · TypeScript · 本地优先 · 2.0 家庭同步开发中
 </div>
 
 ---
@@ -16,7 +16,7 @@
 
 **冰箱有数**是一款温暖、轻量的家庭食材管理小程序。它按每次购入记录独立批次，动态提示新鲜度，根据真实库存匹配食谱；做完一道菜后，会从建议到期更早的批次开始扣减。缺少的食材还能直接加入购物清单，买到后再一键记回冰箱。
 
-首版不要求注册或登录，不连接后端。你的库存、做菜记录和购物清单只保存在当前设备的微信本地空间。
+当前可提审配置不要求注册或登录，也不会连接后端。你的库存、做菜记录和购物清单默认只保存在当前设备的微信本地空间。仓库同时包含 2.0 家庭空间与云同步的 Alpha 工程骨架，但开关保持关闭，不能误作生产服务使用。
 
 ## 为什么做冰箱有数
 
@@ -101,14 +101,15 @@
 | 做菜确认 | 预览并执行 FEFO 跨批次扣减 |
 | 购物清单 | 管理待买食材并转成真实购入批次 |
 | 我的 | 统计、偏好、JSON 导出与本地数据管理 |
+| 家庭与云同步 | 2.0 状态、显式迁移说明、待同步与冲突概览 |
 
 ## 隐私与数据
 
-当前版本坚持本地优先：
+当前发布配置坚持本地优先：
 
 - 不要求微信登录，不获取头像、昵称或手机号。
 - 不请求位置、相册、摄像头或通讯录。
-- 不发起网络请求，不连接开发者服务器或云数据库。
+- `cloudSyncEnabled=false`，运行时不发起登录或业务网络请求。
 - 业务数据只写入当前微信客户端为本小程序分配的本地 Storage。
 - 支持在“我的”中导出完整 JSON，或清空本机数据。
 
@@ -120,17 +121,18 @@
 - 业务代码使用 TypeScript，核心领域规则保持纯函数、可单元测试。
 - 页面只调用 `AppService`，禁止直接读写微信 Storage。
 - `LocalAppRepository` 是唯一的本地持久化实现。
-- 预留 `CloudRepository` 契约，未来接入云同步时无需让页面直接依赖后端。
+- 2.0 已实现独立的 Remote Gateway、原子本地信封、Outbox、冲突箱和同步协调器；页面不直接依赖网络或 Storage。
 - 正式配置关闭演示库存，新用户第一次打开看到真实的空冰箱。
 
 ```mermaid
 flowchart LR
-    UI[原生页面] --> Service[AppService]
+    UI[原生页面] --> Service[AppService / CloudSyncService]
     Service --> Domain[纯 TypeScript 领域规则]
-    Service --> Repo[AppRepository]
-    Repo --> Local[LocalAppRepository]
+    Service --> Local[Local Repository]
     Local --> Storage[微信本地 Storage]
-    Repo -. 第二阶段 .-> Cloud[CloudRepository]
+    Service -. 用户主动开启 .-> Gateway[RemoteSyncGateway]
+    Gateway --> API[TypeScript API]
+    API --> DB[(PostgreSQL)]
 ```
 
 ## 核心业务规则
@@ -180,13 +182,13 @@ pnpm run release:check
 
 当前验证结果：
 
-- 19 个测试场景全部通过。
-- TypeScript 严格检查 0 错误。
-- 9 个页面与 111 个小程序文件通过静态检查。
+- 1.x 19 项测试与 2.0 27 项测试全部通过，合计 46 项。
+- 小程序与服务端 TypeScript 严格检查 0 错误。
+- 10 个页面与 120 个小程序文件通过静态检查。
 - JSON、WXML、本地资源和 Repository 边界检查通过。
-- 正式主包约 392.0 KiB。
-- 未发现登录、网络请求或云端调用。
-- 微信开发者工具实际渲染通过，问题面板为 0。
+- 当前主包约 422.2 KiB。
+- 登录/网络实现只存在于 Remote Gateway，发布配置关闭云同步且 API 域名为空。
+- 1.2.0 已完成微信开发者工具实际渲染；2.0 新页面仍需下一轮开发者工具和真机回归。
 
 完整记录见 [TEST_RESULTS.md](./TEST_RESULTS.md)。
 
@@ -195,18 +197,23 @@ pnpm run release:check
 ```text
 bingxiang-youshu-miniprogram/
 ├─ miniprogram/
-│  ├─ pages/                 9 个原生页面
+│  ├─ pages/                 10 个原生页面
 │  ├─ components/            新鲜度与空状态组件
 │  ├─ domain/                纯 TypeScript 模型和业务规则
-│  ├─ services/              应用用例与页面视图模型
-│  ├─ repositories/          本地实现与云端契约
+│  ├─ services/              应用用例、Remote Gateway 与同步协调器
+│  ├─ repositories/          1.x 本地库与 2.0 原子家庭信封
+│  ├─ v2/                    2.0 客户端同步模型
 │  ├─ data/                  食材、食谱和应用配置
 │  └─ assets/png/            本地视觉资源
 ├─ tests/                    领域与应用闭环测试
+├─ server/                   2.0 TypeScript API、OpenAPI 与 PostgreSQL migrations
 ├─ scripts/                  静态检查、发布门禁和 AppID 工具
 ├─ BRAND_GUIDE.md            品牌规范
 ├─ DATA_STORAGE.md           数据存储说明
 ├─ V2_MULTI_USER_SYNC_DESIGN.md  2.0 多用户与云同步待开发设计
+├─ V2_IMPLEMENTATION_STATUS.md   2.0 已实现/未实现证据清单
+├─ V2_DATABASE_ADR.md        PostgreSQL 与同步事实决策
+├─ V2_THREAT_MODEL.md        2.0 威胁与上线安全门禁
 ├─ REVIEW_NOTES.md           微信审核说明
 ├─ RELEASE_CHECKLIST.md      上线清单
 └─ PRIVACY_NOTICE_TEMPLATE.md
@@ -214,21 +221,23 @@ bingxiang-youshu-miniprogram/
 
 ## 当前版本
 
-当前代码版本为 **1.2.0**，在 1.1 品牌升级基础上完成数据导入回退、快捷购入、食谱搜索收藏和食谱扩充。
+当前仓库版本为 **2.0.0-alpha.0**。面向用户的稳定本地功能仍以 **1.2.0** 为基线；Alpha 新增用户/家庭/RBAC、同步协议、显式迁移、服务端接口和数据库 schema，但尚未接入生产 PostgreSQL。
 
 - 原“食仓”1.0.0 上传记录保留，便于回溯。
 - “冰箱有数”1.1.0 已于 2026-08-12 上传微信开发版本，并自动覆盖原体验版，可直接真机测试。
 - “冰箱有数”1.2.0 已完成自动检查和开发者工具模拟器回归，并于 2026-08-13 上传微信开发版本、覆盖原体验版。
 - 当前尚未提交微信审核或正式发布。
-- 首版明确不包含账号登录、云同步、家庭共享、订阅消息、扫码识别和营养建议。
+- 当前可提审配置仍不包含实际账号登录、云同步和家庭共享；2.0 代码默认关闭，避免在后端未生产化时误连真实用户。
 
 提审前请逐项核对 [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)。
 
 ## 产品路线
 
-- **现在**：把食材批次、新鲜度、食谱和购物清单的本地闭环做稳定。
-- **下一步**：完成 1.2.0 真机回归、公众平台资料和提审发布。
-- **未来**：按 [冰箱有数 2.0 多用户与云同步设计](./V2_MULTI_USER_SYNC_DESIGN.md) 开发可选登录、家庭空间、跨设备同步和受控运营后台。
+- **稳定基线**：1.2 本地食材批次、新鲜度、食谱和购物清单闭环。
+- **当前开发**：2.0 PostgreSQL Store、云模式命令总线、家庭成员页面和预发环境。
+- **上线前**：双设备/弱网/并发回归、隐私与注销闭环、运营后台、备份恢复和微信平台配置。
+
+2.0 的真实进度与缺口见 [实现状态](./V2_IMPLEMENTATION_STATUS.md)，完整目标见 [多用户与云同步设计](./V2_MULTI_USER_SYNC_DESIGN.md)。
 
 ---
 

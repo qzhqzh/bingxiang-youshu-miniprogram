@@ -59,4 +59,5 @@ Page({
     wx.showModal({ title: '清空全部本地数据？', content: '购入批次、做菜记录、食谱进度和购物清单都会被清除；食材与食谱基础库会保留。', confirmText: '确认清空', confirmColor: '#D96B62', success: (result: any) => { if (result.confirm) { appService.reset(); this.load(); wx.showToast({ title: '已清空', icon: 'success' }); } } });
   },
   openShopping() { wx.navigateTo({ url: '/pages/shopping-list/index' }); },
+  openCloudSync() { wx.navigateTo({ url: '/pages/cloud-sync/index' }); },
 });

@@ -1,0 +1,5 @@
+-- 回滚脚本仅供已确认的空测试环境手工启用，生产环境禁止自动向后迁移。
+DROP TABLE IF EXISTS audit_logs, v1_migrations, sync_changes, household_sync_cursors,
+  processed_mutations, member_preferences, recipe_progress, cooking_consumptions,
+  cooking_records, shopping_items, inventory_movements, pantry_batches, invitations,
+  household_members, households, device_sessions, auth_identities, users CASCADE;

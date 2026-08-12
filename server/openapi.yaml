@@ -1,0 +1,456 @@
+openapi: 3.1.0
+info:
+  title: 冰箱有数 2.0 API
+  version: 2.0.0-alpha.0
+  description: 家庭食材库存、成员权限、显式迁移与 local-first 增量同步接口。
+servers:
+  - url: https://api.example.com/v2
+    description: 占位示例；不得直接用于提审或生产
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Household
+  - name: Sync
+  - name: Migration
+paths:
+  /auth/wechat:
+    post:
+      tags: [Auth]
+      security: []
+      summary: 使用 wx.login 临时 code 换取冰箱有数会话
+      operationId: loginWechat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code, deviceId]
+              properties:
+                code: { type: string, minLength: 1 }
+                deviceId: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResult' }
+        '401': { $ref: '#/components/responses/ApiError' }
+  /session/logout:
+    post:
+      tags: [Auth]
+      summary: 撤销当前设备会话
+      operationId: logout
+      responses:
+        '204': { description: 已退出 }
+        '401': { $ref: '#/components/responses/ApiError' }
+  /me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      responses:
+        '200':
+          description: 当前用户
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '401': { $ref: '#/components/responses/ApiError' }
+    patch:
+      tags: [Auth]
+      operationId: updateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties: { displayName: { type: string, minLength: 1, maxLength: 30 } }
+      responses:
+        '200':
+          description: 已更新
+          content: { application/json: { schema: { $ref: '#/components/schemas/User' } } }
+        '400': { $ref: '#/components/responses/ApiError' }
+  /me/sessions:
+    get:
+      tags: [Auth]
+      operationId: listSessions
+      responses:
+        '200':
+          description: 不含 token 与设备原始标识的会话列表
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SafeSession' } } } }
+  /me/sessions/{sessionId}:
+    delete:
+      tags: [Auth]
+      operationId: revokeSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204': { description: 已撤销 }
+        '404': { $ref: '#/components/responses/ApiError' }
+  /households:
+    get:
+      tags: [Household]
+      operationId: listHouseholds
+      responses:
+        '200':
+          description: 当前用户有效家庭
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Household' } } } }
+    post:
+      tags: [Household]
+      operationId: createHousehold
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 30 }
+                timezone: { type: string, default: Asia/Shanghai }
+      responses:
+        '201':
+          description: 已创建
+          content: { application/json: { schema: { $ref: '#/components/schemas/Household' } } }
+        '400': { $ref: '#/components/responses/ApiError' }
+  /households/{householdId}:
+    get:
+      tags: [Household]
+      operationId: getHousehold
+      parameters: [{ $ref: '#/components/parameters/HouseholdId' }]
+      responses:
+        '200':
+          description: 家庭空间
+          content: { application/json: { schema: { $ref: '#/components/schemas/Household' } } }
+        '403': { $ref: '#/components/responses/ApiError' }
+    patch:
+      tags: [Household]
+      operationId: updateHousehold
+      parameters: [{ $ref: '#/components/parameters/HouseholdId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 30 }
+                timezone: { type: string }
+      responses:
+        '200':
+          description: 已更新
+          content: { application/json: { schema: { $ref: '#/components/schemas/Household' } } }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /households/{householdId}/invitations:
+    post:
+      tags: [Household]
+      operationId: createInvitation
+      parameters: [{ $ref: '#/components/parameters/HouseholdId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [admin, member, viewer], default: member }
+                maxUses: { type: integer, minimum: 1, maximum: 10, default: 1 }
+      responses:
+        '201': { description: 返回一次性明文 token 与脱敏邀请信息 }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /households/{householdId}/invitations/{invitationId}:
+    delete:
+      tags: [Household]
+      operationId: revokeInvitation
+      parameters:
+        - $ref: '#/components/parameters/HouseholdId'
+        - name: invitationId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: 已撤销 }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /invitations/{token}/accept:
+    post:
+      tags: [Household]
+      operationId: acceptInvitation
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 已加入或幂等返回已有成员关系 }
+        '409': { $ref: '#/components/responses/ApiError' }
+  /households/{householdId}/members/{userId}:
+    patch:
+      tags: [Household]
+      operationId: updateMemberRole
+      parameters:
+        - $ref: '#/components/parameters/HouseholdId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties: { role: { type: string, enum: [admin, member, viewer] } }
+      responses:
+        '200': { description: 已更新 }
+        '403': { $ref: '#/components/responses/ApiError' }
+    delete:
+      tags: [Household]
+      operationId: removeMember
+      parameters:
+        - $ref: '#/components/parameters/HouseholdId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204': { description: 已移除并写入 tombstone }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /households/{householdId}/transfer-ownership:
+    post:
+      tags: [Household]
+      operationId: transferOwnership
+      parameters: [{ $ref: '#/components/parameters/HouseholdId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties: { userId: { type: string } }
+      responses:
+        '200': { description: 原子完成唯一 owner 转移 }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /bootstrap:
+    get:
+      tags: [Sync]
+      operationId: bootstrap
+      parameters:
+        - name: householdId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 当前成员可见的完整家庭快照
+          content: { application/json: { schema: { $ref: '#/components/schemas/Bootstrap' } } }
+        '403': { $ref: '#/components/responses/ApiError' }
+  /sync/push:
+    post:
+      tags: [Sync]
+      operationId: pushMutation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncCommand' }
+      responses:
+        '200':
+          description: 命令已提交或幂等重放
+          content: { application/json: { schema: { $ref: '#/components/schemas/PushResult' } } }
+        '403': { $ref: '#/components/responses/ApiError' }
+        '409': { $ref: '#/components/responses/ApiError' }
+  /sync/pull:
+    get:
+      tags: [Sync]
+      operationId: pullChanges
+      parameters:
+        - name: householdId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: cursor
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+      responses:
+        '200':
+          description: 有序增量页
+          content: { application/json: { schema: { $ref: '#/components/schemas/PullPage' } } }
+        '409':
+          description: 可能返回 FULL_RESYNC_REQUIRED
+          $ref: '#/components/responses/ApiError'
+  /migrations/v1/prepare:
+    post:
+      tags: [Migration]
+      operationId: prepareV1Migration
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/MigrationRequest' } } }
+      responses:
+        '200': { description: 只校验并返回摘要，不写入家庭事实 }
+        '400': { $ref: '#/components/responses/ApiError' }
+  /migrations/v1/commit:
+    post:
+      tags: [Migration]
+      operationId: commitV1Migration
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/MigrationRequest' } } }
+      responses:
+        '200': { description: 幂等迁移提交 }
+        '409': { $ref: '#/components/responses/ApiError' }
+  /migrations/v1/{importBatchId}:
+    get:
+      tags: [Migration]
+      operationId: getMigrationStatus
+      parameters:
+        - name: importBatchId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 迁移状态与校验摘要 }
+        '404': { $ref: '#/components/responses/ApiError' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  parameters:
+    HouseholdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { type: string }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    ApiError:
+      description: 统一业务错误
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message, requestId]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string }
+                  details: {}
+  schemas:
+    User:
+      type: object
+      required: [id, displayName, status, createdAt]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        status: { type: string, enum: [active, frozen, deletionPending, deleted] }
+        createdAt: { type: integer }
+    Household:
+      type: object
+      required: [id, name, timezone, ownerUserId, status, version, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        timezone: { type: string }
+        ownerUserId: { type: string }
+        status: { type: string }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: integer }
+    SafeSession:
+      type: object
+      required: [id, userId, createdAt, expiresAt, lastSeenAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        createdAt: { type: integer }
+        expiresAt: { type: integer }
+        lastSeenAt: { type: integer }
+        revokedAt: { type: integer }
+    LoginResult:
+      type: object
+      required: [accessToken, expiresAt, user, households]
+      properties:
+        accessToken: { type: string }
+        expiresAt: { type: integer }
+        user: { $ref: '#/components/schemas/User' }
+        households: { type: array, items: { $ref: '#/components/schemas/Household' } }
+    SyncCommand:
+      type: object
+      additionalProperties: false
+      required: [mutationId, deviceId, householdId, command, entityId, baseVersion, payload, clientOccurredAt]
+      properties:
+        mutationId: { type: string }
+        deviceId: { type: string }
+        householdId: { type: string }
+        command:
+          type: string
+          enum: [PurchaseBatch, CompleteCooking, AddShoppingItem, CheckShoppingItem, RemoveShoppingItem, DiscardBatch, UnlockRecipe, UpdatePreferences]
+        entityId: { type: string }
+        baseVersion: { type: integer, minimum: 0 }
+        payload: { type: object }
+        clientOccurredAt: { type: string, format: date-time }
+    PushResult:
+      type: object
+      required: [mutationId, accepted, replayed, cursor, canonical]
+      properties:
+        mutationId: { type: string }
+        accepted: { const: true }
+        replayed: { type: boolean }
+        cursor: { type: integer, minimum: 0 }
+        canonical: {}
+    SyncChange:
+      type: object
+      required: [householdId, cursor, entityType, entityId, operation, version, payload, serverTime]
+      properties:
+        householdId: { type: string }
+        cursor: { type: integer, minimum: 1 }
+        entityType: { type: string }
+        entityId: { type: string }
+        operation: { type: string, enum: [upsert, delete] }
+        version: { type: integer, minimum: 1 }
+        payload: {}
+        serverTime: { type: integer }
+    PullPage:
+      type: object
+      required: [changes, nextCursor, hasMore, catalogVersion]
+      properties:
+        changes: { type: array, items: { $ref: '#/components/schemas/SyncChange' } }
+        nextCursor: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+        catalogVersion: { type: integer, minimum: 1 }
+    Bootstrap:
+      type: object
+      required: [household, members, batches, movements, shoppingItems, cookingRecords, recipeProgress, preferences, cursor, catalogVersion]
+      properties:
+        household: { $ref: '#/components/schemas/Household' }
+        members: { type: array, items: { type: object } }
+        batches: { type: array, items: { type: object } }
+        movements: { type: array, items: { type: object } }
+        shoppingItems: { type: array, items: { type: object } }
+        cookingRecords: { type: array, items: { type: object } }
+        recipeProgress: { type: array, items: { type: object } }
+        preferences: { type: object }
+        cursor: { type: integer, minimum: 0 }
+        catalogVersion: { type: integer, minimum: 1 }
+    MigrationRequest:
+      type: object
+      additionalProperties: false
+      required: [householdId, importBatchId, source]
+      properties:
+        householdId: { type: string }
+        importBatchId: { type: string }
+        source: { type: string, minLength: 2 }

@@ -1,0 +1,17 @@
+.hero { padding:32rpx; background:linear-gradient(145deg,#E3EEE6,#FFF7E9); }
+.eyebrow { margin-bottom:12rpx; color:#B56D36; font-size:22rpx; font-weight:700; letter-spacing:2rpx; }
+.status-card { margin-top:18rpx; padding:8rpx 24rpx; }
+.status-head { display:flex; align-items:center; gap:14rpx; padding:24rpx 0; font-size:29rpx; font-weight:700; }
+.status-dot { width:18rpx; height:18rpx; border-radius:50%; background:#C49A64; }
+.status-dot.cloud { background:#3E806C; box-shadow:0 0 0 8rpx rgba(62,128,108,.12); }
+.status-row { display:flex; justify-content:space-between; gap:24rpx; padding:22rpx 0; border-top:1rpx solid #E7DFD2; color:#6B756F; font-size:24rpx; }
+.status-row text:last-child { color:#294D43; text-align:right; }
+.notice { margin-top:20rpx; padding:22rpx 24rpx; border-radius:18rpx; background:#F1E9DC; color:#786D60; font-size:23rpx; line-height:1.6; }
+.action-grid { display:flex; flex-direction:column; gap:18rpx; }
+.guide { margin-top:18rpx; padding:8rpx 24rpx; }
+.guide>view { display:flex; gap:20rpx; padding:24rpx 0; border-bottom:1rpx solid #E7DFD2; }
+.guide>view:last-child { border-bottom:0; }
+.guide>view>text { display:flex; align-items:center; justify-content:center; width:42rpx; height:42rpx; flex:none; border-radius:50%; background:#E4EEE6; color:#24564A; font-size:22rpx; font-weight:700; }
+.guide view view { display:flex; flex-direction:column; gap:8rpx; }
+.guide view view text:first-child { color:#24564A; font-size:26rpx; font-weight:650; }
+.guide view view text:last-child { color:#6B756F; font-size:22rpx; line-height:1.55; }

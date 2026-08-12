@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="hero card">
+    <view class="eyebrow">冰箱有数 2.0</view>
+    <view class="page-title">一家人的冰箱，始终有数</view>
+    <view class="page-subtitle">游客模式继续完整可用；你主动开启后，才会登录并迁移到家庭空间。</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="card loading-card">正在读取同步状态…</view>
+  <view wx:else>
+    <view wx:if="{{error}}" class="error-card">{{error}}</view>
+    <view class="section">
+      <view class="section-title">当前状态</view>
+      <view class="status-card card">
+        <view class="status-head"><text class="status-dot {{status.mode}}"></text><text>{{status.mode === 'cloud' ? '家庭云同步' : '游客本地模式'}}</text></view>
+        <view class="status-row"><text>家庭空间</text><text>{{status.activeHouseholdName}}</text></view>
+        <view class="status-row"><text>待同步操作</text><text>{{status.pendingCount}}</text></view>
+        <view class="status-row"><text>需要处理的冲突</text><text>{{status.conflictCount}}</text></view>
+        <view class="status-row"><text>最近同步</text><text>{{lastSyncText}}</text></view>
+      </view>
+    </view>
+
+    <view wx:if="{{status.mode === 'guest'}}" class="section">
+      <button class="btn-primary" loading="{{busy}}" disabled="{{busy}}" bindtap="enableCloud">登录并开启家庭同步</button>
+      <view wx:if="{{!status.available}}" class="notice">当前安装包保持云能力关闭，等待正式 API 域名、数据库与微信合法域名配置完成。你仍可正常使用全部本地功能。</view>
+    </view>
+    <view wx:else class="section action-grid">
+      <button class="btn-primary" loading="{{busy}}" disabled="{{busy}}" bindtap="syncNow">立即同步</button>
+      <button class="btn-secondary" disabled="{{busy}}" bindtap="signOut">退出当前设备</button>
+    </view>
+
+    <view class="section">
+      <view class="section-title">数据边界</view>
+      <view class="guide card">
+        <view><text>1</text><view><text>默认不上传</text><text>不登录时，库存与记录只保存在当前微信设备。</text></view></view>
+        <view><text>2</text><view><text>迁移前两次确认</text><text>先确认登录，再核对数据数量后确认写入家庭。</text></view></view>
+        <view><text>3</text><view><text>离线仍可继续</text><text>操作进入本机待同步队列，联网后用幂等命令安全补传。</text></view></view>
+      </view>
+    </view>
+  </view>
+</view>
