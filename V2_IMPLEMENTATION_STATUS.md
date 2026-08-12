@@ -1,7 +1,7 @@
 # 冰箱有数 2.0 实现状态
 
 更新时间：2026-08-13
-当前阶段：`2.0.0-alpha.6`，阶段 0/1 与部分阶段 3 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
+当前阶段：`2.0.0-alpha.7`，阶段 0/1 与部分阶段 3 的可运行工程骨架；**不是可连接真实用户数据的生产版本**。
 
 本文用代码证据区分“已经完成”“已实现但尚未生产化”和“尚未实现”，避免把设计文档误读成上线事实。2.0 的完整目标仍以 [`V2_MULTI_USER_SYNC_DESIGN.md`](./V2_MULTI_USER_SYNC_DESIGN.md) 为准。
 
@@ -28,6 +28,7 @@
 | PostgreSQL 微信身份登录、默认家庭原子创建、资料与安全设备会话 | [`server/src/postgres/identity-service.ts`](./server/src/postgres/identity-service.ts) |
 | PostgreSQL 家庭/成员/邀请事务、配额锁、唯一 owner 转移与审计 | [`server/src/postgres/household-service.ts`](./server/src/postgres/household-service.ts) |
 | PostgreSQL 8 类同步命令、FEFO 做菜事实、版本冲突与幂等提交 | [`server/src/postgres/sync-service.ts`](./server/src/postgres/sync-service.ts) |
+| PostgreSQL 脱敏导出、注销冷静期/取消、到期 worker 与匿名化审计 | [`server/src/postgres/privacy-service.ts`](./server/src/postgres/privacy-service.ts) |
 | 小程序“家庭与云同步”状态/双重迁移确认页 | [`miniprogram/pages/cloud-sync/index.wxml`](./miniprogram/pages/cloud-sync/index.wxml) |
 | 冲突中心、显式重试/取消与成员变化永久拒绝 | [`miniprogram/pages/sync-conflicts/index.wxml`](./miniprogram/pages/sync-conflicts/index.wxml)、[`miniprogram/repositories/local/local-v2.repository.ts`](./miniprogram/repositories/local/local-v2.repository.ts) |
 | 家庭创建/切换/接受邀请与切换前原子下载 | [`miniprogram/pages/households/index.wxml`](./miniprogram/pages/households/index.wxml)、[`miniprogram/services/cloud/cloud-sync.service.ts`](./miniprogram/services/cloud/cloud-sync.service.ts) |
@@ -39,7 +40,7 @@
 ## 已实现但尚未生产化
 
 - 服务端领域流程当前由 `InMemoryV2Store` 驱动，用于验证事务边界和接口契约。`NODE_ENV=production` 会主动拒绝启动，防止误用内存数据库。
-- PostgreSQL schema、身份/会话、家庭/成员/邀请、8 类同步命令、mutation 事务执行器和一致性 Query Store 已存在，SQL 边界已通过模拟连接测试；尚未实现完整 `PostgresV2Service` 隐私/迁移组合并接入生产 API，也未在真实 PostgreSQL 实例执行集成测试。
+- PostgreSQL schema、身份/会话、家庭协作、8 类同步命令、数据权利 worker、mutation 事务执行器和一致性 Query Store 已存在，SQL 边界已通过模拟连接测试；尚未实现迁移服务与完整 `PostgresV2Service` 生产 API 组合，也未在真实 PostgreSQL 实例执行集成测试。
 - 小程序 Remote Gateway 已实现 `wx.login`、Bearer API、push/pull 和迁移调用；正式配置保持关闭，API 域名为空。
 - 2.0 同步、冲突、家庭和成员页面已可在开发包查看，但登录按钮在未配置生产环境时只解释当前状态，不会发出网络请求。
 - v2 信封可以可靠管理远端实体、Outbox 和冲突；现有 1.x `AppService` 尚未切换为“云模式命令总线”，因此不能开启真实云同步。
@@ -49,7 +50,7 @@
 
 ## 尚未实现
 
-1. 完整 PostgreSQL 隐私/迁移任务服务、`PostgresV2Service` API 运行时接线与真实数据库集成测试；身份、家庭协作、8 类同步命令、Query Store 和事务执行器已有登录事务、角色复核、配额锁、只读快照、`SELECT … FOR UPDATE`、cursor 和幂等提交边界。
+1. 完整 PostgreSQL v1 迁移服务、`PostgresV2Service` API 运行时接线与真实数据库集成测试；身份、家庭协作、8 类同步命令、数据权利、Query Store 和事务执行器已有登录事务、角色复核、配额锁、只读快照、`SELECT … FOR UPDATE`、cursor 和幂等提交边界。
 2. Redis 分布式限流实现、结构化脱敏日志、指标与链路追踪。
 3. access token 轮换/续期；导出/注销生产 worker、加密存储、到期清理与删除恢复演练。
 4. 小程序主业务页面在云模式下经命令总线写 Outbox，并由远端 canonical 数据驱动 UI。
@@ -71,8 +72,8 @@ pnpm run release:check
 当前结果：
 
 - 1.x：19 项领域与闭环测试通过。
-- 2.0：59 项身份、RBAC、租户隔离、同步、并发库存、迁移、HTTP schema/限流、家庭切换、数据权利、PostgreSQL 身份/家庭/命令/读写事务边界和冲突处理测试通过。
-- 合计：78 项测试通过。
+- 2.0：63 项身份、RBAC、租户隔离、同步、并发库存、迁移、HTTP schema/限流、家庭切换、数据权利、PostgreSQL 身份/家庭/命令/隐私/读写事务边界和冲突处理测试通过。
+- 合计：82 项测试通过。
 - 小程序与服务端 TypeScript 严格检查通过。
 - 14 个小程序页面、136 个小程序文件通过静态检查。
 - OpenAPI、运行时 schema、数据库关键约束和 PostgreSQL 事务边界通过契约检查。

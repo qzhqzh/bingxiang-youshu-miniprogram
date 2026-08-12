@@ -154,3 +154,12 @@ pnpm run release:check
 - 个人偏好测试覆盖 viewer 修改本人设置、version 0 首次 upsert、个人实体隔离和单条同步变更。
 - 做菜测试覆盖候选批次 `FOR UPDATE`、纯 TypeScript FEFO、跨批次扣减、两条不可变流水、两条 consumption、`CookingRecord`、食谱进度和 6 条单调 change 同事务提交。
 - TypeScript、静态契约与发布安全门禁通过；真实 PostgreSQL migration、并发和断线重试仍未在本机执行。
+
+## 2.0.0-alpha.7 PostgreSQL 数据权利复验
+
+- 新增 4 项 PostgreSQL 数据导出/注销测试；2.0 共 63 项，全量 82 passed，0 failed，0 skipped。
+- 导出测试确认只组装可读家庭、当前成员和本人状态，响应与持久化负载均不含 token/device hash 或原始 access token，并写导出审计。
+- owner 阻断测试确认注销前置条件在事务内重新检查，仍拥有家庭时 `ROLLBACK`，不会修改用户状态。
+- 冷静期测试覆盖当前受限会话续期、其他会话撤销、用户 `deletionPending` 和冷静期内原子取消。
+- worker 测试覆盖 `FOR UPDATE SKIP LOCKED`、成员 tombstone/cursor、身份映射及个人状态清理、用户匿名化和完成审计，同时断言没有删除共享 `cooking_records`。
+- TypeScript、静态契约和发布安全门禁通过；加密对象存储、真实备份删除边界和 PostgreSQL 实例联调仍未完成。

@@ -17,6 +17,7 @@ const required = [
   'server/src/postgres/identity-service.ts',
   'server/src/postgres/household-service.ts',
   'server/src/postgres/sync-service.ts',
+  'server/src/postgres/privacy-service.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -109,5 +110,19 @@ for (const boundary of [
   'ON CONFLICT (household_id, user_id) DO UPDATE',
   'VERSION_CONFLICT',
 ]) assert.ok(syncSource.includes(boundary), `PostgreSQL 同步命令服务缺少边界：${boundary}`);
+
+const privacySource = readFileSync(join(root, 'server/src/postgres/privacy-service.ts'), 'utf8');
+for (const boundary of [
+  'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE',
+  'INSERT INTO data_export_jobs',
+  'user-lifecycle:',
+  'GREATEST(expires_at, $4)',
+  'FOR UPDATE SKIP LOCKED',
+  'DELETE FROM auth_identities',
+  'DELETE FROM member_preferences',
+  'DELETE FROM recipe_progress',
+  "display_name = '已注销成员'",
+  'ROLLBACK',
+]) assert.ok(privacySource.includes(boundary), `PostgreSQL 数据权利服务缺少边界：${boundary}`);
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');
