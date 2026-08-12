@@ -32,7 +32,7 @@ PostgreSQL / Redis / 备份
 | 会话泄露 | 只存 token hash；短时效；设备会话可撤销；日志脱敏 | 过期/撤销/假会话测试 |
 | 越权读取其他家庭 | 每个请求从 session user + active membership 鉴权；查询强制 household scope | 双家庭跨租户测试 |
 | 低角色越权写入 | 服务端 RBAC；不信任客户端角色 | viewer/member/admin/owner 矩阵测试 |
-| 邀请枚举或重放 | 256-bit 随机 token、只存 hash、过期、撤销、使用次数和成员上限 | 过期/撤销/重复接受测试 |
+| 邀请枚举或重放 | 256-bit 随机 token、只存 hash、过期、撤销、使用次数和成员上限；PostgreSQL 接受流程锁定邀请/家庭/用户配额 | 过期/撤销/重复接受与 SQL 哈希边界测试 |
 | 网络重试造成重复扣减 | `(userId, mutationId)` 幂等唯一键，保存 canonical 结果 | mutation 重放测试 |
 | 并发做菜超扣 | 数据库行锁、稳定 FEFO、非负 CHECK、单事务提交 | 并发做菜测试；待 PostgreSQL 集成测试 |
 | 旧客户端覆盖新数据 | `baseVersion` 和 canonical 服务端值；冲突进入本机冲突箱 | version 冲突测试 |
@@ -45,7 +45,7 @@ PostgreSQL / Redis / 备份
 
 ## 上线前仍需关闭的高风险缺口
 
-- PostgreSQL Store 未实现，数据库并发锁与事务尚未在真实实例验证。
+- PostgreSQL 身份、家庭协作、读模型与 mutation 事务边界已实现，但尚未组合成完整 Store，数据库迁移和并发锁仍未在真实实例验证。
 - API 已接入运行时 schema 与单进程可替换限流器；Redis 多副本限流、指标、告警和集中脱敏日志尚未实现。
 - 用户导出、注销冷静期与删除领域任务已实现；生产 worker、加密导出存储、过期清理和真实备份删除边界尚未验证。
 - 运营后台及其 MFA/审计/双人复核尚未实现。

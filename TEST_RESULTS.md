@@ -136,3 +136,12 @@ pnpm run release:check
 - 冻结账号登录在创建会话前返回 `UNAUTHENTICATED` 并执行 `ROLLBACK`。
 - 安全会话列表 SQL 不选择 `token_hash`/`device_id_hash`，返回对象也不含这两个字段；所有连接均有 release 断言。
 - 当前仍没有真实 PostgreSQL 实例，完整 `PostgresV2Service` 与 API 生产接线尚未完成，`NODE_ENV=production` 继续拒绝内存 Store。
+
+## 2.0.0-alpha.5 PostgreSQL 家庭协作事务复验
+
+- 新增 4 项 PostgreSQL 家庭/成员/邀请测试；2.0 共 55 项，全量 74 passed，0 failed，0 skipped。
+- 创建家庭测试覆盖 `SERIALIZABLE`、用户家庭配额 advisory lock、家庭/owner/cursor/两条初始变更/审计同事务提交。
+- 接受邀请测试确认 SQL 只接收邀请 token 的 64 位 SHA-256 哈希，原始口令不出现在数据库调用记录；邀请、家庭和用户配额依次锁定，被移除成员可原子恢复并追加同步变更。
+- 所有权转移测试确认旧 owner 必须先降级，再升级新 owner，并在同一事务追加家庭、旧 owner、新 owner 三条单调 cursor 变更。
+- 越权测试确认访客角色在事务内复核后返回 `HOUSEHOLD_FORBIDDEN`，执行 `ROLLBACK`，不写邀请或审计日志。
+- TypeScript、静态契约、发布安全门禁继续通过；本机仍无真实 PostgreSQL 实例，因此该结果不包含真实数据库 migration/并发集成验证。

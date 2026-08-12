@@ -15,6 +15,7 @@ const required = [
   'server/src/postgres/mutation-executor.ts',
   'server/src/postgres/query-store.ts',
   'server/src/postgres/identity-service.ts',
+  'server/src/postgres/household-service.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -81,5 +82,18 @@ for (const boundary of [
   'INSERT INTO sync_changes',
   'ROLLBACK',
 ]) assert.ok(identitySource.includes(boundary), `PostgreSQL 身份服务缺少边界：${boundary}`);
+
+const householdSource = readFileSync(join(root, 'server/src/postgres/household-service.ts'), 'utf8');
+for (const boundary of [
+  'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE',
+  'user-households:',
+  'household:',
+  "token_hash = decode($1, 'hex')",
+  'FOR UPDATE',
+  "SET role = 'admin'",
+  "SET role = 'owner'",
+  'INSERT INTO audit_logs',
+  'ROLLBACK',
+]) assert.ok(householdSource.includes(boundary), `PostgreSQL 家庭服务缺少边界：${boundary}`);
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');
