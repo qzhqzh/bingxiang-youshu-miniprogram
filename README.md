@@ -199,6 +199,7 @@ bingxiang-youshu-miniprogram/
 ├─ scripts/                  静态检查、发布门禁和 AppID 工具
 ├─ BRAND_GUIDE.md            品牌规范
 ├─ DATA_STORAGE.md           数据存储说明
+├─ V2_MULTI_USER_SYNC_DESIGN.md  2.0 多用户与云同步待开发设计
 ├─ REVIEW_NOTES.md           微信审核说明
 ├─ RELEASE_CHECKLIST.md      上线清单
 └─ PRIVACY_NOTICE_TEMPLATE.md
@@ -219,7 +220,7 @@ bingxiang-youshu-miniprogram/
 
 - **现在**：把食材批次、新鲜度、食谱和购物清单的本地闭环做稳定。
 - **下一步**：真机体验优化、数据导入、更多食谱与更轻的录入方式。
-- **未来**：在隐私与数据迁移方案完善后，再考虑登录、云同步和家庭共享。
+- **未来**：按 [冰箱有数 2.0 多用户与云同步设计](./V2_MULTI_USER_SYNC_DESIGN.md) 开发可选登录、家庭空间、跨设备同步和受控运营后台。
 
 ---
 
