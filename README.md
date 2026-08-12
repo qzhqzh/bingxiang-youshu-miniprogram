@@ -232,6 +232,7 @@ bingxiang-youshu-miniprogram/
 ├─ V2_IMPLEMENTATION_STATUS.md   2.0 已实现/未实现证据清单
 ├─ V2_DATABASE_ADR.md        PostgreSQL 与同步事实决策
 ├─ V2_THREAT_MODEL.md        2.0 威胁与上线安全门禁
+├─ NEXT_VERSION_UPGRADE_PLAN.md  1.3 今日行动版产品、交互与验收计划
 ├─ REVIEW_NOTES.md           微信审核说明
 ├─ RELEASE_CHECKLIST.md      上线清单
 └─ PRIVACY_NOTICE_TEMPLATE.md
@@ -252,7 +253,8 @@ bingxiang-youshu-miniprogram/
 ## 产品路线
 
 - **稳定基线**：1.2 本地食材批次、新鲜度、食谱和购物清单闭环。
-- **当前开发**：2.0 PostgreSQL 持久化服务、云模式命令总线、生产任务执行器与预发环境。
+- **下一用户版本**：1.3“今日行动版”，优先解决今天吃什么、快速盘点和做菜完成感，详见 [下一版升级计划](./NEXT_VERSION_UPGRADE_PLAN.md)。
+- **并行技术线**：2.0 PostgreSQL 持久化服务、云模式命令总线、生产任务执行器与预发环境；正式开关保持关闭。
 - **上线前**：双设备/弱网/并发回归、注销/导出真实存储与清理演练、运营后台、备份恢复和微信平台配置。
 
 2.0 的真实进度与缺口见 [实现状态](./V2_IMPLEMENTATION_STATUS.md)，完整目标见 [多用户与云同步设计](./V2_MULTI_USER_SYNC_DESIGN.md)。
