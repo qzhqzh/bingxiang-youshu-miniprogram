@@ -1,6 +1,6 @@
 {
   "name": "bingxiang-youshu-miniprogram",
-  "version": "2.0.0-alpha.3",
+  "version": "2.0.0-alpha.4",
   "private": true,
   "description": "冰箱有数——家庭食材库存、新鲜度提醒与食谱匹配微信小程序",
   "keywords": [
@@ -26,7 +26,7 @@
   "scripts": {
     "test": "pnpm run test:v1 && pnpm run test:v2",
     "test:v1": "node scripts/run-tests.mjs",
-    "test:v2": "node --import tsx --test server/tests/v2.test.ts server/tests/client-sync.test.ts server/tests/postgres-executor.test.ts server/tests/postgres-query-store.test.ts",
+    "test:v2": "node --import tsx --test server/tests/v2.test.ts server/tests/client-sync.test.ts server/tests/postgres-executor.test.ts server/tests/postgres-query-store.test.ts server/tests/postgres-identity-service.test.ts",
     "typecheck": "pnpm run typecheck:mini && pnpm run typecheck:server",
     "typecheck:mini": "tsc --noEmit",
     "typecheck:server": "tsc -p server/tsconfig.json --noEmit",

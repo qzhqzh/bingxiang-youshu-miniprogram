@@ -127,3 +127,12 @@ pnpm run release:check
 - pull 覆盖 minimum cursor 过期的 `FULL_RESYNC_REQUIRED`、`limit + 1` 分页、next cursor 和 catalogVersion。
 - Pool 模式验证使用单连接 `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`，成功 `COMMIT` 并释放连接；代码同时包含失败 `ROLLBACK` 路径。
 - 当前机器未发现 Docker、`psql` 或 PostgreSQL 服务，本轮没有把模拟 SQL 边界测试宣称为真实数据库集成测试。
+
+## 2.0.0-alpha.4 PostgreSQL 身份与会话复验
+
+- 新增 3 项 PostgreSQL 身份/会话测试；2.0 共 51 项，全量 70 passed，0 failed，0 skipped。
+- 首次微信登录测试覆盖 `SERIALIZABLE`、按微信身份 advisory lock、用户/身份/默认家庭/owner/cursor/两条初始变更/会话同事务提交。
+- 测试确认设备 ID 和 access token 原文不出现在 SQL 参数记录中，落库值为 64 位 SHA-256 十六进制并通过 `decode(..., 'hex')` 转 `bytea`。
+- 冻结账号登录在创建会话前返回 `UNAUTHENTICATED` 并执行 `ROLLBACK`。
+- 安全会话列表 SQL 不选择 `token_hash`/`device_id_hash`，返回对象也不含这两个字段；所有连接均有 release 断言。
+- 当前仍没有真实 PostgreSQL 实例，完整 `PostgresV2Service` 与 API 生产接线尚未完成，`NODE_ENV=production` 继续拒绝内存 Store。

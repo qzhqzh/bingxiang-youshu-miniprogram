@@ -80,7 +80,7 @@ export function buildApp(service: V2ApiService, options: BuildAppOptions = {}) {
     });
   });
 
-  app.get('/healthz', async () => ({ ok: true, version: '2.0.0-alpha.3' }));
+  app.get('/healthz', async () => ({ ok: true, version: '2.0.0-alpha.4' }));
 
   app.post('/v2/auth/wechat', {
     schema: schemas.login,

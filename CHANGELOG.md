@@ -2,6 +2,15 @@
 
 本项目使用语义化版本号记录面向用户的变化。
 
+## 2.0.0-alpha.4 — PostgreSQL 身份与会话
+
+- 新增 PostgreSQL 微信身份登录服务，同一 `(provider, appId, providerSubject)` 通过事务 advisory lock 串行，避免并发首次登录创建重复用户。
+- 首次登录在同一 `SERIALIZABLE` 事务内创建内部用户、认证身份、默认家庭、唯一 owner、初始 cursor/同步变更与设备会话；任一步失败均回滚。
+- access token 与原始设备 ID 不写库，只保存 SHA-256 `bytea`；登录响应仅返回一次 access token。
+- 新增 PostgreSQL 退出、资料修改、安全会话列表和本人会话撤销；会话列表 SQL 与结果均排除 token/device hash。
+- 新增 3 项 PostgreSQL 身份事务测试；2.0 专项增至 51 项，全量增至 70 项。
+- 当前仍未把全部家庭/邀请/同步命令与隐私任务组合成完整 `PostgresV2Service`，生产入口继续拒绝内存 Store，云同步开关继续关闭。
+
 ## 2.0.0-alpha.3 — PostgreSQL 一致性读模型
 
 - 新增 PostgreSQL 会话鉴权：access token 仅以 SHA-256 哈希查询，返回 principal 不暴露 token/设备哈希原值。

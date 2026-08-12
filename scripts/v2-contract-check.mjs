@@ -14,6 +14,7 @@ const required = [
   'server/src/rate-limit.ts',
   'server/src/postgres/mutation-executor.ts',
   'server/src/postgres/query-store.ts',
+  'server/src/postgres/identity-service.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -70,5 +71,15 @@ for (const boundary of [
   "FROM recipe_progress WHERE household_id = $1 AND user_id = $2",
   'FULL_RESYNC_REQUIRED',
 ]) assert.ok(queryStoreSource.includes(boundary), `PostgreSQL 读模型缺少边界：${boundary}`);
+
+const identitySource = readFileSync(join(root, 'server/src/postgres/identity-service.ts'), 'utf8');
+for (const boundary of [
+  'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE',
+  'identity:wechat-miniprogram:',
+  "decode($3, 'hex'), decode($4, 'hex')",
+  'INSERT INTO household_sync_cursors',
+  'INSERT INTO sync_changes',
+  'ROLLBACK',
+]) assert.ok(identitySource.includes(boundary), `PostgreSQL 身份服务缺少边界：${boundary}`);
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');
