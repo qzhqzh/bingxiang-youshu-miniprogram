@@ -163,3 +163,11 @@ pnpm run release:check
 - 冷静期测试覆盖当前受限会话续期、其他会话撤销、用户 `deletionPending` 和冷静期内原子取消。
 - worker 测试覆盖 `FOR UPDATE SKIP LOCKED`、成员 tombstone/cursor、身份映射及个人状态清理、用户匿名化和完成审计，同时断言没有删除共享 `cooking_records`。
 - TypeScript、静态契约和发布安全门禁通过；加密对象存储、真实备份删除边界和 PostgreSQL 实例联调仍未完成。
+
+## 2.0.0-alpha.8 PostgreSQL v1 迁移复验
+
+- 新增 3 项 PostgreSQL v1 迁移测试；2.0 共 66 项，全量 85 passed，0 failed，0 skipped。
+- 预检测试覆盖事务内库存权限复核、checksum/数量摘要落库和同源幂等重放；同一批次 ID 携带不同快照会被拒绝。
+- 确认测试覆盖空目标复核、批次与 purchase 流水、个人偏好、单调 change/cursor 和 committed 状态在一个 `SERIALIZABLE` 事务提交。
+- 回滚测试证明目标家庭已有共享数据时不会写入导入批次、流水或 cursor；实现同时覆盖购物项、食谱进度、做菜记录、consumption 与 consume 流水。
+- TypeScript、静态契约与发布安全门禁通过；本机仍无真实 PostgreSQL 实例，因此尚未完成真实 migration、约束和并发验证。

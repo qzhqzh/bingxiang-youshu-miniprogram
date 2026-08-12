@@ -18,6 +18,7 @@ const required = [
   'server/src/postgres/household-service.ts',
   'server/src/postgres/sync-service.ts',
   'server/src/postgres/privacy-service.ts',
+  'server/src/postgres/migration-service.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -124,5 +125,17 @@ for (const boundary of [
   "display_name = '已注销成员'",
   'ROLLBACK',
 ]) assert.ok(privacySource.includes(boundary), `PostgreSQL 数据权利服务缺少边界：${boundary}`);
+
+const migrationSource = readFileSync(join(root, 'server/src/postgres/migration-service.ts'), 'utf8');
+for (const boundary of [
+  'validateImportJson',
+  'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE',
+  'migration:',
+  'FOR UPDATE',
+  ') AS occupied',
+  'INSERT INTO inventory_movements',
+  "UPDATE v1_migrations SET status = 'committed'",
+  'ROLLBACK',
+]) assert.ok(migrationSource.includes(boundary), `PostgreSQL v1 迁移服务缺少边界：${boundary}`);
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');
