@@ -159,9 +159,10 @@ export class PostgresSyncService {
 
   constructor(private readonly pool: PgPoolLike, options: { now?: () => number; catalogVersion?: number } = {}) {
     this.now = options.now ?? Date.now;
-    this.queryStore = new PostgresQueryStore({
-      query: (text, values) => this.withClientQuery(text, values),
-    }, { now: this.now, ...(options.catalogVersion === undefined ? {} : { catalogVersion: options.catalogVersion }) });
+    this.queryStore = PostgresQueryStore.fromPool(pool, {
+      now: this.now,
+      ...(options.catalogVersion === undefined ? {} : { catalogVersion: options.catalogVersion }),
+    });
     this.executor = new PostgresMutationExecutor(pool, { now: this.now });
   }
 
@@ -618,9 +619,4 @@ export class PostgresSyncService {
     }
   }
 
-  private async withClientQuery<R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]) {
-    const client = await this.pool.connect();
-    try { return await client.query<R>(text, values); }
-    finally { client.release(); }
-  }
 }

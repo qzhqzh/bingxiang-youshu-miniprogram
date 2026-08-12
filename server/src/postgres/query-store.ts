@@ -1,4 +1,4 @@
-import type { Pool, QueryResult, QueryResultRow } from 'pg';
+import type { QueryResult, QueryResultRow } from 'pg';
 import { seedRecipes } from '../../../miniprogram/data/recipes.js';
 import { refreshRecipeProgress } from '../../../miniprogram/domain/rules.js';
 import type { AppSettings, RecipeProgress } from '../../../miniprogram/domain/models.js';
@@ -24,6 +24,10 @@ import type { PullResult } from '../api-service.js';
 
 export interface PgQueryable {
   query<R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<R>>;
+}
+
+export interface PgReadPool {
+  connect(): Promise<PgQueryable & { release(): void }>;
 }
 
 interface PrincipalRow extends QueryResultRow {
@@ -154,8 +158,15 @@ export class PostgresQueryStore {
     this.consistentRead = consistentRead ?? (async <T>(work: (db: PgQueryable) => Promise<T>) => work(db));
   }
 
-  static fromPool(pool: Pool, options: QueryStoreOptions = {}): PostgresQueryStore {
-    return new PostgresQueryStore(pool, options, async <T>(work: (db: PgQueryable) => Promise<T>) => {
+  static fromPool(pool: PgReadPool, options: QueryStoreOptions = {}): PostgresQueryStore {
+    const queryThroughPool: PgQueryable = {
+      query: async <R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]) => {
+        const client = await pool.connect();
+        try { return await client.query<R>(text, values); }
+        finally { client.release(); }
+      },
+    };
+    return new PostgresQueryStore(queryThroughPool, options, async <T>(work: (db: PgQueryable) => Promise<T>) => {
       const client = await pool.connect();
       try {
         await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');

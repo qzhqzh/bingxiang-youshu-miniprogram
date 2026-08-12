@@ -146,9 +146,7 @@ export class PostgresHouseholdService {
     this.invitationTtlMs = options.invitationTtlMs ?? 72 * 60 * 60 * 1_000;
     this.statementTimeoutMs = options.statementTimeoutMs ?? 8_000;
     this.lockTimeoutMs = options.lockTimeoutMs ?? 2_000;
-    this.queryStore = new PostgresQueryStore({
-      query: (text, values) => this.withClientQuery(text, values),
-    }, { now: this.now });
+    this.queryStore = PostgresQueryStore.fromPool(pool, { now: this.now });
   }
 
   async listHouseholds(accessToken: string): Promise<Household[]> {
@@ -527,12 +525,6 @@ export class PostgresHouseholdService {
        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
       [actorUserId, householdId, action, targetType, targetId, JSON.stringify(metadata), new Date(this.now())],
     );
-  }
-
-  private async withClientQuery<R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]) {
-    const client = await this.pool.connect();
-    try { return await client.query<R>(text, values); }
-    finally { client.release(); }
   }
 
   private async transaction<T>(work: (client: PgClientLike) => Promise<T>): Promise<T> {

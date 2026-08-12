@@ -19,6 +19,8 @@ const required = [
   'server/src/postgres/sync-service.ts',
   'server/src/postgres/privacy-service.ts',
   'server/src/postgres/migration-service.ts',
+  'server/src/postgres/service.ts',
+  'server/src/runtime.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -137,5 +139,28 @@ for (const boundary of [
   "UPDATE v1_migrations SET status = 'committed'",
   'ROLLBACK',
 ]) assert.ok(migrationSource.includes(boundary), `PostgreSQL v1 迁移服务缺少边界：${boundary}`);
+
+const postgresServiceSource = readFileSync(join(root, 'server/src/postgres/service.ts'), 'utf8');
+for (const boundary of [
+  'implements V2ApiService',
+  'new PostgresIdentityService',
+  'new PostgresHouseholdService',
+  'new PostgresSyncService',
+  'new PostgresPrivacyService',
+  'new PostgresMigrationService',
+]) assert.ok(postgresServiceSource.includes(boundary), `PostgresV2Service 缺少组合：${boundary}`);
+
+const runtimeSource = readFileSync(join(root, 'server/src/runtime.ts'), 'utf8');
+for (const boundary of [
+  "env.NODE_ENV === 'production'",
+  '生产环境必须配置 BINGXIANG_DATABASE_URL',
+  'new PostgresV2Service',
+  'FROM schema_migrations',
+  'to_regclass',
+  'pool.end()',
+]) assert.ok(runtimeSource.includes(boundary), `生产运行时缺少安全边界：${boundary}`);
+assert.ok(queryStoreSource.includes('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'), '一致性读必须使用只读快照事务');
+assert.ok(householdSource.includes('PostgresQueryStore.fromPool(pool'), '家庭 bootstrap 必须接入一致性连接池读模型');
+assert.ok(syncSource.includes('PostgresQueryStore.fromPool(pool'), '同步 pull 必须接入一致性连接池读模型');
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');

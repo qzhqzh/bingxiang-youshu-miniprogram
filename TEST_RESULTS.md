@@ -171,3 +171,11 @@ pnpm run release:check
 - 确认测试覆盖空目标复核、批次与 purchase 流水、个人偏好、单调 change/cursor 和 committed 状态在一个 `SERIALIZABLE` 事务提交。
 - 回滚测试证明目标家庭已有共享数据时不会写入导入批次、流水或 cursor；实现同时覆盖购物项、食谱进度、做菜记录、consumption 与 consume 流水。
 - TypeScript、静态契约与发布安全门禁通过；本机仍无真实 PostgreSQL 实例，因此尚未完成真实 migration、约束和并发验证。
+
+## 2.0.0-alpha.9 PostgreSQL 生产 API 组合复验
+
+- 新增 3 项 PostgreSQL 生产运行时测试；2.0 共 69 项，全量 88 passed，0 failed，0 skipped。
+- 测试确认生产环境缺少数据库连接时拒绝降级内存 Store，数据库池参数从服务端环境变量读取且不会进入小程序包。
+- 启动预检覆盖两份必须 migration 和 `users`、会话、cursor、隐私任务关键表；未完成 migration 时在监听端口前失败，关闭时释放连接池。
+- 契约门禁确认 `PostgresV2Service` 组合全部五组持久化服务，家庭 bootstrap 与同步 pull 使用 `REPEATABLE READ READ ONLY` 单连接快照。
+- TypeScript、静态契约、仓库密钥扫描和发布安全门禁通过；该结果仍基于模拟数据库协议，本机没有可用于集成验证的真实 PostgreSQL 实例。

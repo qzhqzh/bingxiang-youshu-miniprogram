@@ -2,6 +2,16 @@
 
 本项目使用语义化版本号记录面向用户的变化。
 
+## 2.0.0-alpha.9 — PostgreSQL 生产 API 组合
+
+- 新增 `PostgresV2Service` 组合根，把身份/会话、家庭/成员/邀请、8 类同步命令、数据权利和 v1 迁移完整实现为 HTTP 层的 `V2ApiService`。
+- 服务端在配置数据库连接时使用 PostgreSQL 服务；`NODE_ENV=production` 且缺少连接串时明确拒绝启动，不会静默退回内存数据。
+- 监听端口前校验 `schema_migrations` 与关键实体表，缺 migration 时给出执行指引；启动失败和进程关闭时释放数据库连接池。
+- 家庭 bootstrap 与同步 pull 在组合路径中实际启用单连接 `REPEATABLE READ READ ONLY` 快照，避免跨查询读到不一致数据。
+- 增加数据库池大小、连接超时、空闲超时和代理信任环境变量模板；发布门禁新增仓库密钥扫描，真实密钥仍不进入仓库。
+- 新增 3 项生产运行时测试；2.0 专项增至 69 项，全量增至 88 项。
+- 本机没有真实 PostgreSQL 实例，本版本仍不代表生产可用；真实 migration/并发、任务 worker、Redis、加密导出和双设备联调仍是门禁。
+
 ## 2.0.0-alpha.8 — PostgreSQL v1 数据迁移
 
 - 新增 PostgreSQL v1 两阶段迁移服务：预检阶段完成格式/引用校验、checksum、权限复核和数量摘要持久化，确认阶段必须使用完全一致的源快照。

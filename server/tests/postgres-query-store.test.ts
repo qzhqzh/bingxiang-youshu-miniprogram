@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { Pool, QueryResult, QueryResultRow } from 'pg';
+import type { QueryResult, QueryResultRow } from 'pg';
 import { PostgresQueryStore, type PgQueryable } from '../src/postgres/query-store.js';
 import { hashSecret } from '../src/security.js';
 
@@ -154,7 +154,7 @@ describe('2.0 PostgreSQL 读模型', () => {
       },
       release() { released = true; },
     };
-    const pool = { async connect() { return client; } } as unknown as Pool;
+    const pool = { async connect() { return client; } };
     const store = PostgresQueryStore.fromPool(pool);
     const page = await store.pull('home', 'alice', 0, 20);
     assert.equal(page.hasMore, false);
