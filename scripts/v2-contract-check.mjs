@@ -16,6 +16,7 @@ const required = [
   'server/src/postgres/query-store.ts',
   'server/src/postgres/identity-service.ts',
   'server/src/postgres/household-service.ts',
+  'server/src/postgres/sync-service.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -95,5 +96,18 @@ for (const boundary of [
   'INSERT INTO audit_logs',
   'ROLLBACK',
 ]) assert.ok(householdSource.includes(boundary), `PostgreSQL 家庭服务缺少边界：${boundary}`);
+
+const syncSource = readFileSync(join(root, 'server/src/postgres/sync-service.ts'), 'utf8');
+for (const boundary of [
+  'new PostgresMutationExecutor',
+  "case 'PurchaseBatch'",
+  "case 'CompleteCooking'",
+  "case 'UpdatePreferences'",
+  'lockCookingPlan',
+  'INSERT INTO inventory_movements',
+  'INSERT INTO cooking_consumptions',
+  'ON CONFLICT (household_id, user_id) DO UPDATE',
+  'VERSION_CONFLICT',
+]) assert.ok(syncSource.includes(boundary), `PostgreSQL 同步命令服务缺少边界：${boundary}`);
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');

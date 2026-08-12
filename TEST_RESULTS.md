@@ -145,3 +145,12 @@ pnpm run release:check
 - 所有权转移测试确认旧 owner 必须先降级，再升级新 owner，并在同一事务追加家庭、旧 owner、新 owner 三条单调 cursor 变更。
 - 越权测试确认访客角色在事务内复核后返回 `HOUSEHOLD_FORBIDDEN`，执行 `ROLLBACK`，不写邀请或审计日志。
 - TypeScript、静态契约、发布安全门禁继续通过；本机仍无真实 PostgreSQL 实例，因此该结果不包含真实数据库 migration/并发集成验证。
+
+## 2.0.0-alpha.6 PostgreSQL 同步命令复验
+
+- 新增 4 项 PostgreSQL 同步命令测试；2.0 共 59 项，全量 78 passed，0 failed，0 skipped。
+- 购入命令测试确认批次、purchase 流水、两条同步变更和幂等 canonical 在同一 `SERIALIZABLE` 事务提交。
+- 购物项版本冲突测试确认返回 `VERSION_CONFLICT` 与服务端 version，执行 `ROLLBACK`，不分配 cursor，也不保存 `processed_mutations`。
+- 个人偏好测试覆盖 viewer 修改本人设置、version 0 首次 upsert、个人实体隔离和单条同步变更。
+- 做菜测试覆盖候选批次 `FOR UPDATE`、纯 TypeScript FEFO、跨批次扣减、两条不可变流水、两条 consumption、`CookingRecord`、食谱进度和 6 条单调 change 同事务提交。
+- TypeScript、静态契约与发布安全门禁通过；真实 PostgreSQL migration、并发和断线重试仍未在本机执行。

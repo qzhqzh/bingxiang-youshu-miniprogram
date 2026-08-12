@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 冰箱有数 2.0 API
-  version: 2.0.0-alpha.5
+  version: 2.0.0-alpha.6
   description: 家庭食材库存、成员权限、显式迁移与 local-first 增量同步接口。
 servers:
   - url: https://api.example.com/v2

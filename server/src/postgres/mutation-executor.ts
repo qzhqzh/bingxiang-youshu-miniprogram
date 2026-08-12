@@ -3,7 +3,7 @@ import type { Ingredient, PantryBatch, Recipe } from '../../../miniprogram/domai
 import { previewCooking } from '../../../miniprogram/domain/rules.js';
 import { ApiError } from '../errors.js';
 import { can } from '../rbac.js';
-import type { HouseholdRole, Permission, PushResult, SyncEntityType } from '../types.js';
+import type { HouseholdRole, Permission, PushResult, ServerPantryBatch, SyncEntityType } from '../types.js';
 
 export interface PgClientLike {
   query<R extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<R>>;
@@ -43,16 +43,21 @@ interface CursorRow extends QueryResultRow {
 
 interface BatchRow extends QueryResultRow {
   id: string;
+  household_id: string;
   ingredient_id: string;
   quantity: string | number;
+  original_quantity: string | number;
   unit: string;
   purchased_at: Date | string;
   storage_mode: PantryBatch['storageMode'];
   shelf_life_days_override: number | null;
   note: string | null;
   status: PantryBatch['status'];
+  created_by: string;
   created_at: Date | string | number;
   updated_at: Date | string | number;
+  version: string | number;
+  deleted_at: Date | string | number | null;
 }
 
 function asTimestamp(value: Date | string | number): number {
@@ -122,8 +127,8 @@ export class PostgresMutationContext {
   async lockCookingPlan(recipe: Recipe, servings: number, ingredients: Ingredient[]) {
     const ingredientIds = [...new Set(recipe.ingredients.map((item) => item.ingredientId))].sort();
     const result = await this.client.query<BatchRow>(
-      `SELECT id, ingredient_id, quantity, unit, purchased_at, storage_mode,
-              shelf_life_days_override, note, status, created_at, updated_at
+      `SELECT id, household_id, ingredient_id, quantity, original_quantity, unit, purchased_at, storage_mode,
+              shelf_life_days_override, note, status, created_by, created_at, updated_at, version, deleted_at
        FROM pantry_batches
        WHERE household_id = $1
          AND ingredient_id = ANY($2::text[])
@@ -134,18 +139,23 @@ export class PostgresMutationContext {
        FOR UPDATE`,
       [this.householdId, ingredientIds],
     );
-    const batches: PantryBatch[] = result.rows.map((row) => ({
+    const batches: ServerPantryBatch[] = result.rows.map((row) => ({
       id: row.id,
+      householdId: row.household_id,
       ingredientId: row.ingredient_id,
       quantity: Number(row.quantity),
+      originalQuantity: Number(row.original_quantity),
       unit: row.unit,
       purchasedAt: asDateOnly(row.purchased_at),
       storageMode: row.storage_mode,
       ...(row.shelf_life_days_override === null ? {} : { shelfLifeDaysOverride: row.shelf_life_days_override }),
       ...(row.note === null ? {} : { note: row.note }),
       status: row.status,
+      createdBy: row.created_by,
       createdAt: asTimestamp(row.created_at),
       updatedAt: asTimestamp(row.updated_at),
+      version: Number(row.version),
+      ...(row.deleted_at === null ? {} : { deletedAt: asTimestamp(row.deleted_at) }),
     }));
     const preview = previewCooking(recipe, servings, batches, ingredients);
     if (!preview.canComplete) {

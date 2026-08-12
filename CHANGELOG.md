@@ -2,6 +2,16 @@
 
 本项目使用语义化版本号记录面向用户的变化。
 
+## 2.0.0-alpha.6 — PostgreSQL 同步命令闭环
+
+- 新增 PostgreSQL 同步命令服务，覆盖购入批次、完成做菜、添加/勾选/删除购物项、丢弃批次、解锁食谱和更新个人偏好 8 类命令。
+- 每条命令先用哈希会话鉴权，再进入既有 `SERIALIZABLE` 幂等事务执行器；成员权限复核、实体写入、不可变流水、cursor、change log 与 `processed_mutations` 同事务提交。
+- 购入与购物清单转购入会原子写入批次、purchase 流水并勾选原购物项；新增实体使用 `ON CONFLICT DO NOTHING` 防止不同 mutation 复用实体 ID。
+- 做菜命令先锁定候选批次，复用纯 TypeScript FEFO 规则，再原子保存批次扣减、consume 流水、consumption 明细、`CookingRecord` 和个人食谱进度。
+- 购物项、批次和个人偏好执行 `baseVersion` 冲突检查，冲突返回服务端 canonical 值并整体回滚，不分配 cursor。
+- 新增 4 项 PostgreSQL 同步命令测试；2.0 专项增至 59 项，全量增至 78 项。
+- 尚未完成 PostgreSQL 隐私/迁移任务与完整 `PostgresV2Service` 组合，真实数据库迁移和并发验证仍是生产上线门禁。
+
 ## 2.0.0-alpha.5 — PostgreSQL 家庭协作事务
 
 - 新增 PostgreSQL 家庭、成员与邀请服务：创建/修改家庭、创建/撤销/接受邀请、角色调整、移除成员和所有权转移均使用 `SERIALIZABLE` 事务。

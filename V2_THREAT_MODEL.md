@@ -34,7 +34,7 @@ PostgreSQL / Redis / 备份
 | 低角色越权写入 | 服务端 RBAC；不信任客户端角色 | viewer/member/admin/owner 矩阵测试 |
 | 邀请枚举或重放 | 256-bit 随机 token、只存 hash、过期、撤销、使用次数和成员上限；PostgreSQL 接受流程锁定邀请/家庭/用户配额 | 过期/撤销/重复接受与 SQL 哈希边界测试 |
 | 网络重试造成重复扣减 | `(userId, mutationId)` 幂等唯一键，保存 canonical 结果 | mutation 重放测试 |
-| 并发做菜超扣 | 数据库行锁、稳定 FEFO、非负 CHECK、单事务提交 | 并发做菜测试；待 PostgreSQL 集成测试 |
+| 并发做菜超扣 | 数据库行锁、稳定 FEFO、非负 CHECK、批次/流水/记录/进度单事务提交 | 内存并发与 PostgreSQL SQL 边界测试；待真实实例并发测试 |
 | 旧客户端覆盖新数据 | `baseVersion` 和 canonical 服务端值；冲突进入本机冲突箱 | version 冲突测试 |
 | 已移除成员继续补传 | push 前和事务内重新校验 membership，返回 `MEMBERSHIP_CHANGED` | 移除成员 Outbox 测试 |
 | 恶意或损坏迁移数据 | 大小限制、JSON/schema/引用校验、checksum、显式两步确认、空目标约束 | 损坏/重复/已有数据测试 |

@@ -130,14 +130,14 @@ describe('2.0 PostgreSQL 事务执行器', () => {
     const client = new FakePgClient();
     client.batches = [
       {
-        id: 'frozen-old', ingredient_id: 'egg', quantity: '2', unit: 'piece', purchased_at: '2026-08-01',
+        id: 'frozen-old', household_id: 'home', ingredient_id: 'egg', quantity: '2', original_quantity: '2', unit: 'piece', purchased_at: '2026-08-01',
         storage_mode: 'frozen', shelf_life_days_override: null, note: null, status: 'active',
-        created_at: '2026-08-01T01:00:00.000Z', updated_at: '2026-08-01T01:00:00.000Z',
+        created_by: 'user', created_at: '2026-08-01T01:00:00.000Z', updated_at: '2026-08-01T01:00:00.000Z', version: '1', deleted_at: null,
       },
       {
-        id: 'room-new', ingredient_id: 'egg', quantity: '2', unit: 'piece', purchased_at: '2026-08-10',
+        id: 'room-new', household_id: 'home', ingredient_id: 'egg', quantity: '2', original_quantity: '2', unit: 'piece', purchased_at: '2026-08-10',
         storage_mode: 'room', shelf_life_days_override: null, note: null, status: 'active',
-        created_at: '2026-08-10T01:00:00.000Z', updated_at: '2026-08-10T01:00:00.000Z',
+        created_by: 'user', created_at: '2026-08-10T01:00:00.000Z', updated_at: '2026-08-10T01:00:00.000Z', version: '1', deleted_at: null,
       },
     ];
     const ingredient: Ingredient = {
