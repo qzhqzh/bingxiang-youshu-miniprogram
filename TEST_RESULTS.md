@@ -179,3 +179,11 @@ pnpm run release:check
 - 启动预检覆盖两份必须 migration 和 `users`、会话、cursor、隐私任务关键表；未完成 migration 时在监听端口前失败，关闭时释放连接池。
 - 契约门禁确认 `PostgresV2Service` 组合全部五组持久化服务，家庭 bootstrap 与同步 pull 使用 `REPEATABLE READ READ ONLY` 单连接快照。
 - TypeScript、静态契约、仓库密钥扫描和发布安全门禁通过；该结果仍基于模拟数据库协议，本机没有可用于集成验证的真实 PostgreSQL 实例。
+
+## 2.0.0-alpha.10 账号注销 worker 复验
+
+- 新增 3 项账号注销 worker 测试；2.0 共 72 项，全量 91 passed，0 failed，0 skipped。
+- 防重入测试证明同一进程的重叠触发只执行一个数据库批次，并传入稳定扫描时间和受限批量大小。
+- 失败恢复测试证明单轮异常会交给脱敏错误回调、释放运行锁并允许下一轮正常重试。
+- 停机测试证明 worker 会等待在途批处理完成；小于 1 秒的轮询和超过 1000 的批量会在启动前拒绝。
+- TypeScript、静态契约、仓库密钥扫描与发布安全门禁通过；真实 PostgreSQL 多 worker、容器停机宽限期和备份删除演练仍待预发验证。

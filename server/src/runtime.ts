@@ -5,6 +5,7 @@ import type { PgPoolLike } from './postgres/mutation-executor.js';
 import { V2Service } from './service.js';
 import { InMemoryV2Store } from './store.js';
 import { LiveWechatIdentityProvider, type WechatIdentityProvider } from './wechat.js';
+import type { AccountDeletionExecutor } from './workers/account-deletion-worker.js';
 
 const REQUIRED_MIGRATIONS = ['0001_v2_core.sql', '0002_privacy_jobs.sql'] as const;
 
@@ -16,6 +17,7 @@ export interface RuntimePool extends PgPoolLike {
 export interface ServiceRuntime {
   mode: 'memory' | 'postgres';
   service: V2ApiService;
+  accountDeletionExecutor?: AccountDeletionExecutor;
   ready(): Promise<void>;
   close(): Promise<void>;
 }
@@ -86,6 +88,7 @@ export function createServiceRuntime(
   return {
     mode: 'postgres',
     service,
+    accountDeletionExecutor: service,
     ready: async () => {
       const migrationResult = await pool.query<MigrationNameRow>(
         'SELECT name FROM schema_migrations WHERE name = ANY($1::text[])',

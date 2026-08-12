@@ -187,7 +187,7 @@ pnpm run release:check
 
 当前验证结果：
 
-- 1.x 19 项测试与 2.0 69 项测试全部通过，合计 88 项。
+- 1.x 19 项测试与 2.0 72 项测试全部通过，合计 91 项。
 - 小程序与服务端 TypeScript 严格检查 0 错误。
 - 14 个页面与 136 个小程序文件通过静态检查。
 - JSON、WXML、本地资源和 Repository 边界检查通过。
@@ -204,9 +204,11 @@ pnpm run release:check
 ```bash
 pnpm run db:migrate
 pnpm run start:api
+# 在独立进程/容器启动注销到期任务
+pnpm run start:deletion-worker
 ```
 
-变量名见 [`.env.example`](./.env.example)。`NODE_ENV=production` 时必须提供 `BINGXIANG_DATABASE_URL`；启动会先检查两份 schema migration 和关键表，缺失时会在开放端口前失败。非生产环境未配置数据库时才允许使用内存实现。
+变量名见 [`.env.example`](./.env.example)。`NODE_ENV=production` 时必须提供 `BINGXIANG_DATABASE_URL`；API 与 worker 都会先检查两份 schema migration 和关键表。注销 worker 可多副本部署，数据库 `SKIP LOCKED` 与进程内防重入共同避免重复执行。非生产环境未配置数据库时才允许 API 使用内存实现。
 
 ## 项目结构
 
@@ -237,7 +239,7 @@ bingxiang-youshu-miniprogram/
 
 ## 当前版本
 
-当前仓库版本为 **2.0.0-alpha.9**。面向用户的稳定本地功能仍以 **1.2.0** 为基线；Alpha 已把 PostgreSQL 身份/会话、家庭协作、8 类同步命令、一致性读模型、数据权利和 v1 两阶段迁移组合成完整 API 服务，并接入带 migration 预检和安全关闭的生产启动链路；真实数据库、任务 worker 与双设备联调仍未完成。
+当前仓库版本为 **2.0.0-alpha.10**。面向用户的稳定本地功能仍以 **1.2.0** 为基线；Alpha 已把 PostgreSQL 领域模块组合成完整 API 服务，并接入带 migration 预检、安全关闭和防重入的账号注销 worker；真实数据库、加密导出存储与双设备联调仍未完成。
 
 - 原“食仓”1.0.0 上传记录保留，便于回溯。
 - “冰箱有数”1.1.0 已于 2026-08-12 上传微信开发版本，并自动覆盖原体验版，可直接真机测试。

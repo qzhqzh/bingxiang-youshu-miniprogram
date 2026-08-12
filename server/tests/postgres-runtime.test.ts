@@ -59,6 +59,7 @@ describe('2.0 PostgreSQL 生产运行时', () => {
     }, dependencies(pool, configs));
 
     assert.equal(runtime.mode, 'postgres');
+    assert.ok(runtime.accountDeletionExecutor);
     assert.equal(configs[0]?.connectionString, 'postgresql://private-host/app');
     assert.equal(configs[0]?.max, 6);
     await runtime.ready();

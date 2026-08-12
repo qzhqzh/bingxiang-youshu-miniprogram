@@ -21,6 +21,8 @@ const required = [
   'server/src/postgres/migration-service.ts',
   'server/src/postgres/service.ts',
   'server/src/runtime.ts',
+  'server/src/deletion-worker.ts',
+  'server/src/workers/account-deletion-worker.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
@@ -162,5 +164,16 @@ for (const boundary of [
 assert.ok(queryStoreSource.includes('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'), '一致性读必须使用只读快照事务');
 assert.ok(householdSource.includes('PostgresQueryStore.fromPool(pool'), '家庭 bootstrap 必须接入一致性连接池读模型');
 assert.ok(syncSource.includes('PostgresQueryStore.fromPool(pool'), '同步 pull 必须接入一致性连接池读模型');
+
+const workerSource = readFileSync(join(root, 'server/src/workers/account-deletion-worker.ts'), 'utf8');
+for (const boundary of [
+  'if (this.inFlight) return this.inFlight',
+  'executeDueAccountDeletions',
+  'clearInterval',
+  'await this.inFlight',
+]) assert.ok(workerSource.includes(boundary), `注销 worker 缺少生命周期边界：${boundary}`);
+const workerEntrySource = readFileSync(join(root, 'server/src/deletion-worker.ts'), 'utf8');
+assert.ok(workerEntrySource.includes("process.env.NODE_ENV !== 'production'"), '注销 worker 必须拒绝非生产误启动');
+assert.ok(workerEntrySource.includes('await runtime.ready()'), '注销 worker 必须执行数据库启动预检');
 
 console.log('2.0 契约检查通过：OpenAPI、运行时 schema/限流、租户与隐私任务表、库存约束、唯一 owner、幂等键与 PostgreSQL 事务边界均存在。');
