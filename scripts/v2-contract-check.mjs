@@ -25,6 +25,7 @@ const required = [
   'server/src/workers/account-deletion-worker.ts',
   'server/src/service.ts',
   'miniprogram/repositories/local/local-v2.repository.ts',
+  'miniprogram/services/cloud/cloud-command.service.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
 ];
 required.forEach((path) => assert.ok(existsSync(join(root, path)), `缺少 2.0 契约文件：${path}`));
@@ -172,6 +173,22 @@ for (const boundary of [
   'clearInterval',
   'await this.inFlight',
 ]) assert.ok(workerSource.includes(boundary), `注销 worker 缺少生命周期边界：${boundary}`);
+const cloudCommandSource = readFileSync(join(root, 'miniprogram/services/cloud/cloud-command.service.ts'), 'utf8');
+for (const command of [
+  'PurchaseBatch',
+  'CompleteCooking',
+  'AddShoppingItem',
+  'CheckShoppingItem',
+  'RemoveShoppingItem',
+  'DiscardBatch',
+  'UnlockRecipe',
+  'UpdatePreferences',
+]) assert.ok(cloudCommandSource.includes(command), `小程序云命令总线缺少命令：${command}`);
+assert.ok(cloudCommandSource.includes('this.local.enqueue(command, changes)'), '云命令必须通过本地仓储原子写入待同步队列与乐观视图');
+const localV2Source = readFileSync(join(root, 'miniprogram/repositories/local/local-v2.repository.ts'), 'utf8');
+assert.ok(localV2Source.includes('optimisticRollback'), '本地仓储缺少乐观更新回滚快照');
+assert.ok(localV2Source.includes('serverValue'), '版本冲突必须使用服务端权威值收敛');
+
 const workerEntrySource = readFileSync(join(root, 'server/src/deletion-worker.ts'), 'utf8');
 assert.ok(workerEntrySource.includes("process.env.NODE_ENV !== 'production'"), '注销 worker 必须拒绝非生产误启动');
 assert.ok(workerEntrySource.includes('await runtime.ready()'), '注销 worker 必须执行数据库启动预检');

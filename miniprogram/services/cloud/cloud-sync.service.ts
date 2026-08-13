@@ -12,15 +12,19 @@ import type {
   MigrationSummary,
 } from '../../v2/models';
 import { SyncCoordinator } from './sync-coordinator';
+import { CloudCommandService } from './cloud-command.service';
 import type { CloudAccountGateway, InvitationResponse } from './remote-sync.gateway';
 import { WechatRemoteSyncGateway } from './remote-sync.gateway';
 
 export class CloudSyncService {
+  readonly commands: CloudCommandService;
   constructor(
     private readonly local = new LocalV2Repository(),
     private readonly createGateway: (apiBaseUrl: string) => CloudAccountGateway = (url) => new WechatRemoteSyncGateway(url),
     private readonly config: { cloudSyncEnabled: boolean; apiBaseUrl: string } = appConfig,
-  ) {}
+  ) {
+    this.commands = new CloudCommandService(this.local, () => this.syncNow());
+  }
 
   available(): boolean { return this.config.cloudSyncEnabled && /^https:\/\//.test(this.config.apiBaseUrl); }
 

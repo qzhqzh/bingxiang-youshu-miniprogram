@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { LocalV2Repository, type StorageAdapter } from '../../miniprogram/repositories/local/local-v2.repository.js';
 import { CloudSyncService } from '../../miniprogram/services/cloud/cloud-sync.service.js';
+import { CloudCommandService } from '../../miniprogram/services/cloud/cloud-command.service.js';
 import {
   RemoteApiError,
   type BootstrapResponse,
@@ -146,7 +147,7 @@ function command(householdId = 'home'): SyncCommand {
     command: 'PurchaseBatch',
     entityId: `batch-${commandSequence}`,
     baseVersion: 0,
-    payload: { ingredientId: 'egg', quantity: 2 },
+    payload: { ingredientId: 'egg', quantity: 2, unit: 'piece', purchasedAt: '2026-08-13', storageMode: 'chilled' },
     clientOccurredAt: '2026-08-13T08:00:00.000Z',
   };
 }
@@ -262,6 +263,88 @@ describe('2.0 小程序同步协调器', () => {
     assert.equal(envelope.cursor, 0);
     assert.equal(envelope.entities.household?.home?.version, 2);
     assert.equal(envelope.entities.pantryBatch?.['batch-server']?.version, 3);
+  });
+});
+
+describe('2.0 小程序云命令总线', () => {
+  function signedInLocal(now = 3_000) {
+    const storage = new MemoryStorage();
+    const local = new LocalV2Repository(storage, () => now);
+    local.device();
+    local.saveAuth({
+      mode: 'cloud', accessToken: 'cloud-token', expiresAt: now + 60_000,
+      user: { id: 'alice', displayName: '小秦' },
+      households: [{ id: 'home', name: '我的冰箱', timezone: 'Asia/Shanghai', ownerUserId: 'alice', version: 1 }],
+      activeHouseholdId: 'home',
+    });
+    return { storage, local };
+  }
+
+  it('73. 购入命令、乐观批次和回滚前像只写入一个原子家庭信封', () => {
+    const { storage, local } = signedInLocal();
+    const service = new CloudCommandService(local, async () => undefined, () => 3_000);
+    const before = storage.writes;
+    const command = service.purchase({
+      ingredientId: 'egg', quantity: 6, unit: 'piece', purchasedAt: '2026-08-13', storageMode: 'chilled',
+    });
+    assert.equal(storage.writes, before + 1);
+    const envelope = local.envelope('home');
+    assert.equal(envelope.outbox[0]?.command.mutationId, command.mutationId);
+    assert.equal(envelope.outbox[0]?.optimisticRollback?.[0]?.previous, undefined);
+    assert.equal((envelope.entities.pantryBatch?.[command.entityId]?.value as { quantity: number }).quantity, 6);
+    assert.equal(envelope.entities.pantryBatch?.[command.entityId]?.version, 0);
+  });
+
+  it('74. 八类写操作都通过同一命令总线排队并携带当前服务端 baseVersion', () => {
+    const { local } = signedInLocal();
+    local.applyChanges('home', [
+      { householdId: 'home', cursor: 1, entityType: 'shoppingItem', entityId: 'shop-1', operation: 'upsert', version: 3, payload: { id: 'shop-1', checked: false, version: 3 }, serverTime: 1 },
+      { householdId: 'home', cursor: 2, entityType: 'pantryBatch', entityId: 'batch-1', operation: 'upsert', version: 4, payload: { id: 'batch-1', quantity: 2, status: 'active', version: 4 }, serverTime: 2 },
+      { householdId: 'home', cursor: 3, entityType: 'recipeProgress', entityId: 'alice:steamed_egg', operation: 'upsert', version: 2, payload: { recipeId: 'steamed_egg', status: 'unlockable', cookCount: 0, version: 2 }, serverTime: 3 },
+      { householdId: 'home', cursor: 4, entityType: 'preferences', entityId: 'alice', operation: 'upsert', version: 5, payload: { version: 5 }, serverTime: 4 },
+    ], 4, 1);
+    const service = new CloudCommandService(local, async () => undefined, () => 3_000);
+    service.purchase({ ingredientId: 'egg', quantity: 2, unit: 'piece', purchasedAt: '2026-08-13', storageMode: 'chilled' });
+    service.completeCooking('steamed_egg', 1);
+    service.addShoppingItem('egg', 6);
+    service.checkShoppingItem('shop-1', true);
+    service.removeShoppingItem('shop-1');
+    service.discardBatch('batch-1');
+    service.unlockRecipe('steamed_egg');
+    service.updatePreferences({ freshnessReminderDays: 4, defaultStorageMode: 'frozen', favoriteRecipeIds: ['steamed_egg'] });
+
+    const commands = local.envelope('home').outbox.map((item) => item.command);
+    assert.deepEqual(commands.map((item) => item.command), [
+      'PurchaseBatch', 'CompleteCooking', 'AddShoppingItem', 'CheckShoppingItem',
+      'RemoveShoppingItem', 'DiscardBatch', 'UnlockRecipe', 'UpdatePreferences',
+    ]);
+    assert.equal(commands.find((item) => item.command === 'CheckShoppingItem')?.baseVersion, 3);
+    assert.equal(commands.find((item) => item.command === 'DiscardBatch')?.baseVersion, 4);
+    assert.equal(commands.find((item) => item.command === 'UnlockRecipe')?.baseVersion, 2);
+    assert.equal(commands.find((item) => item.command === 'UpdatePreferences')?.baseVersion, 5);
+  });
+
+  it('75. 版本冲突会回滚乐观值并用服务端 canonical 替换，不留下错误界面状态', async () => {
+    const { local } = signedInLocal();
+    local.applyChanges('home', [{
+      householdId: 'home', cursor: 1, entityType: 'shoppingItem', entityId: 'shop-1', operation: 'upsert',
+      version: 3, payload: { id: 'shop-1', checked: false, version: 3 }, serverTime: 1,
+    }], 1, 1);
+    const service = new CloudCommandService(local, async () => undefined, () => 3_000);
+    const queued = service.checkShoppingItem('shop-1', true);
+    assert.equal((local.envelope('home').entities.shoppingItem?.['shop-1']?.value as { checked: boolean }).checked, true);
+    const remote = new FakeGateway();
+    remote.pushError = new RemoteApiError('VERSION_CONFLICT', '已被修改', 409, {
+      serverValue: { id: 'shop-1', checked: false, version: 4 },
+    });
+    const outcome = await new SyncCoordinator(local, remote, () => 3_000).sync('cloud-token', 'home');
+    const envelope = local.envelope('home');
+    const entity = envelope.entities.shoppingItem?.['shop-1'];
+    assert.equal(outcome.conflicts, 1);
+    assert.equal(entity?.version, 4);
+    assert.equal((entity?.value as { checked: boolean }).checked, false);
+    assert.deepEqual(envelope.conflicts[0]?.serverValue, { id: 'shop-1', checked: false, version: 4 });
+    assert.equal(envelope.outbox.find((item) => item.command.mutationId === queued.mutationId)?.state, 'conflict');
   });
 });
 

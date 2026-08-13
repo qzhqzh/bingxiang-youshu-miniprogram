@@ -1,3 +1,5 @@
+import type { StorageMode } from '../domain/models';
+
 export type SyncEntityType =
   | 'household' | 'member' | 'pantryBatch' | 'inventoryMovement'
   | 'shoppingItem' | 'cookingRecord' | 'recipeProgress' | 'preferences';
@@ -50,15 +52,40 @@ export interface CloudAuthState {
   activeHouseholdId?: string;
 }
 
-export interface SyncCommand {
+interface SyncCommandBase<TName extends string, TPayload> {
   mutationId: string;
   deviceId: string;
   householdId: string;
-  command: string;
+  command: TName;
   entityId: string;
   baseVersion: number;
-  payload: unknown;
+  payload: TPayload;
   clientOccurredAt: string;
+}
+
+export type SyncCommand =
+  | SyncCommandBase<'PurchaseBatch', {
+      ingredientId: string; quantity: number; unit: string; purchasedAt: string; storageMode: StorageMode;
+      shelfLifeDaysOverride?: number; note?: string; shoppingItemId?: string;
+    }>
+  | SyncCommandBase<'CompleteCooking', { recipeId: string; servings: number }>
+  | SyncCommandBase<'AddShoppingItem', {
+      ingredientId: string; suggestedQuantity: number; unit: string; sourceRecipeId?: string;
+    }>
+  | SyncCommandBase<'CheckShoppingItem', { checked: boolean }>
+  | SyncCommandBase<'RemoveShoppingItem', Record<string, never>>
+  | SyncCommandBase<'DiscardBatch', Record<string, never>>
+  | SyncCommandBase<'UnlockRecipe', { recipeId: string }>
+  | SyncCommandBase<'UpdatePreferences', {
+      freshnessReminderDays?: number; defaultStorageMode?: StorageMode; favoriteRecipeIds?: string[];
+    }>;
+
+export interface OptimisticEntityChange {
+  entityType: SyncEntityType;
+  entityId: string;
+  version: number;
+  deleted: boolean;
+  value: unknown;
 }
 
 export interface OutboxItem {
@@ -68,6 +95,11 @@ export interface OutboxItem {
   nextAttemptAt: number;
   createdAt: number;
   lastErrorCode?: string;
+  optimisticRollback?: Array<{
+    entityType: SyncEntityType;
+    entityId: string;
+    previous?: LocalEntity;
+  }>;
 }
 
 export interface LocalConflict {

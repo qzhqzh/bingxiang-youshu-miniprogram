@@ -3,9 +3,11 @@ import type {
   DeviceIdentity,
   HouseholdEnvelope,
   LocalConflict,
+  OptimisticEntityChange,
   OutboxItem,
   SyncChange,
   SyncCommand,
+  SyncEntityType,
 } from '../../v2/models';
 
 const DEVICE_KEY = 'pantry:v2:device';
@@ -78,7 +80,7 @@ export class LocalV2Repository {
     return next;
   }
 
-  enqueue(command: SyncCommand): HouseholdEnvelope {
+  enqueue(command: SyncCommand, optimisticChanges: OptimisticEntityChange[] = []): HouseholdEnvelope {
     return this.mutateEnvelope(command.householdId, (current) => {
       if (current.outbox.some((item) => item.command.mutationId === command.mutationId)) return current;
       const item: OutboxItem = {
@@ -87,8 +89,23 @@ export class LocalV2Repository {
         attemptCount: 0,
         nextAttemptAt: this.now(),
         createdAt: this.now(),
+        ...(optimisticChanges.length === 0 ? {} : {
+          optimisticRollback: optimisticChanges.map((change) => ({
+            entityType: change.entityType,
+            entityId: change.entityId,
+            ...((current.entities[change.entityType]?.[change.entityId])
+              ? { previous: current.entities[change.entityType]![change.entityId]! }
+              : {}),
+          })),
+        }),
       };
-      return { ...current, outbox: [...current.outbox, item] };
+      const entities = { ...current.entities };
+      optimisticChanges.forEach((change) => {
+        const bucket = { ...(entities[change.entityType] ?? {}) };
+        bucket[change.entityId] = { version: change.version, deleted: change.deleted, value: change.value };
+        entities[change.entityType] = bucket;
+      });
+      return { ...current, entities, outbox: [...current.outbox, item] };
     });
   }
 
@@ -118,15 +135,37 @@ export class LocalV2Repository {
   }
 
   recordConflict(householdId: string, conflict: LocalConflict): HouseholdEnvelope {
-    return this.mutateEnvelope(householdId, (current) => ({
-      ...current,
-      outbox: current.outbox.map((item) => item.command.mutationId === conflict.mutationId
-        ? { ...item, state: 'conflict', lastErrorCode: conflict.type }
-        : item),
-      conflicts: current.conflicts.some((item) => item.mutationId === conflict.mutationId)
-        ? current.conflicts
-        : [...current.conflicts, conflict],
-    }));
+    return this.mutateEnvelope(householdId, (current) => {
+      const queued = current.outbox.find((item) => item.command.mutationId === conflict.mutationId);
+      const entities = { ...current.entities };
+      queued?.optimisticRollback?.forEach((rollback) => {
+        const bucket = { ...(entities[rollback.entityType] ?? {}) };
+        if (rollback.previous) bucket[rollback.entityId] = rollback.previous;
+        else delete bucket[rollback.entityId];
+        entities[rollback.entityType] = bucket;
+      });
+      const serverValue = conflict.serverValue as { version?: unknown; deletedAt?: unknown } | undefined;
+      const targetType = queued ? entityTypeForCommand(queued.command) : undefined;
+      if (queued && targetType && serverValue && typeof serverValue.version === 'number') {
+        const bucket = { ...(entities[targetType] ?? {}) };
+        bucket[queued.command.entityId] = {
+          version: serverValue.version,
+          deleted: typeof serverValue.deletedAt === 'number',
+          value: conflict.serverValue,
+        };
+        entities[targetType] = bucket;
+      }
+      return {
+        ...current,
+        entities,
+        outbox: current.outbox.map((item) => item.command.mutationId === conflict.mutationId
+          ? { ...item, state: 'conflict', lastErrorCode: conflict.type }
+          : item),
+        conflicts: current.conflicts.some((item) => item.mutationId === conflict.mutationId)
+          ? current.conflicts
+          : [...current.conflicts, conflict],
+      };
+    });
   }
 
   retryConflict(householdId: string, conflictId: string, baseVersion?: number): HouseholdEnvelope {
@@ -230,4 +269,17 @@ export class LocalV2Repository {
   }
 
   private householdKey(householdId: string): string { return `${HOUSEHOLD_PREFIX}${householdId}`; }
+}
+
+function entityTypeForCommand(command: SyncCommand): SyncEntityType | undefined {
+  switch (command.command) {
+    case 'PurchaseBatch':
+    case 'DiscardBatch': return 'pantryBatch';
+    case 'AddShoppingItem':
+    case 'CheckShoppingItem':
+    case 'RemoveShoppingItem': return 'shoppingItem';
+    case 'CompleteCooking': return 'cookingRecord';
+    case 'UnlockRecipe': return 'recipeProgress';
+    case 'UpdatePreferences': return 'preferences';
+  }
 }

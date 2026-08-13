@@ -59,6 +59,7 @@ export class SyncCoordinator {
         outcome.pushed += 1;
       } catch (error) {
         if (error instanceof RemoteApiError && conflictCodes.has(error.code)) {
+          const details = error.details as { serverValue?: unknown } | undefined;
           const conflict: LocalConflict = {
             id: `conflict_${queued.command.mutationId}`,
             mutationId: queued.command.mutationId,
@@ -69,7 +70,7 @@ export class SyncCoordinator {
               ? '你已不在这个家庭中；停止重试并保留操作供手工处理。'
               : '请查看服务端最新数据后重新确认。',
             createdAt: this.now(),
-            ...(error.details === undefined ? {} : { serverValue: error.details }),
+            ...(details?.serverValue === undefined ? {} : { serverValue: details.serverValue }),
           };
           this.local.recordConflict(householdId, conflict);
           outcome.conflicts += 1;
