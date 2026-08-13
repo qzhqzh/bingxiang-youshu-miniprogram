@@ -1,4 +1,10 @@
 node_modules/
+backend/.venv/
+backend/var/
+backend/.env
+backend/.coverage
+backend/**/*.pyc
+backend/**/__pycache__/
 tests-build/
 *.zip
 project.private.config.json

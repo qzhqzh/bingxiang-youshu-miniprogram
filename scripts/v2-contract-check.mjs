@@ -27,6 +27,14 @@ const required = [
   'miniprogram/repositories/local/local-v2.repository.ts',
   'miniprogram/services/cloud/cloud-command.service.ts',
   'miniprogram/services/cloud/sync-coordinator.ts',
+  'backend/pyproject.toml',
+  'backend/uv.lock',
+  'backend/api/models.py',
+  'backend/api/services.py',
+  'backend/api/views.py',
+  'backend/api/migrations/0001_initial.py',
+  'backend/api/management/commands/backup_sqlite.py',
+  'backend/api/management/commands/process_deletions.py',
 ];
 required.forEach((path) => assert.ok(existsSync(join(root, path)), `缺少 2.0 契约文件：${path}`));
 
@@ -188,6 +196,15 @@ assert.ok(cloudCommandSource.includes('this.local.enqueue(command, changes)'), '
 const localV2Source = readFileSync(join(root, 'miniprogram/repositories/local/local-v2.repository.ts'), 'utf8');
 assert.ok(localV2Source.includes('optimisticRollback'), '本地仓储缺少乐观更新回滚快照');
 assert.ok(localV2Source.includes('serverValue'), '版本冲突必须使用服务端权威值收敛');
+
+const djangoSettings = readFileSync(join(root, 'backend/config/settings.py'), 'utf8');
+for (const boundary of ['django.db.backends.sqlite3', 'transaction_mode', 'IMMEDIATE', 'journal_mode=WAL', 'busy_timeout=20000']) {
+  assert.ok(djangoSettings.includes(boundary), `Django SQLite 配置缺少安全边界：${boundary}`);
+}
+const djangoServices = readFileSync(join(root, 'backend/api/services.py'), 'utf8');
+for (const boundary of ['@transaction.atomic', 'ProcessedMutation', 'append_change', 'VERSION_CONFLICT', 'command_cooking', 'validate_v1_source']) {
+  assert.ok(djangoServices.includes(boundary), `Django 领域服务缺少边界：${boundary}`);
+}
 
 const workerEntrySource = readFileSync(join(root, 'server/src/deletion-worker.ts'), 'utf8');
 assert.ok(workerEntrySource.includes("process.env.NODE_ENV !== 'production'"), '注销 worker 必须拒绝非生产误启动');

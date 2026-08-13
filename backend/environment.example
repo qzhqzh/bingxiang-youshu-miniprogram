@@ -1,0 +1,7 @@
+DJANGO_SECRET_KEY=replace-with-at-least-50-random-characters
+DJANGO_ALLOWED_HOSTS=api.example.com,127.0.0.1
+DJANGO_CSRF_TRUSTED_ORIGINS=https://api.example.com
+SQLITE_PATH=/var/lib/bingxiang-youshu/db.sqlite3
+WECHAT_APP_ID=replace-on-server
+WECHAT_APP_SECRET=replace-on-server
+TRUST_PROXY_HEADERS=false

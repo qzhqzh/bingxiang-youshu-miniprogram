@@ -195,3 +195,12 @@ pnpm run release:check
 - 八类命令覆盖测试确认所有云写操作走同一入口，并从当前 canonical 实体携带正确 `baseVersion`。
 - 冲突测试确认客户端提取服务端 `serverValue`，回滚乐观状态并用新版本 canonical 替换界面实体。
 - TypeScript、静态契约、仓库密钥扫描与发布门禁通过；云同步和 API 地址在正式小程序配置中继续关闭。
+
+## 2.0.0-alpha.12 Django + SQLite 后台
+
+- 新增 26 项 Django 后台测试，26 passed、0 failed，语句覆盖率 89%。
+- 使用真实 Django migration 和 SQLite 测试库验证身份、租户、权限、8 类命令、幂等、版本冲突、FEFO 和分页同步。
+- v1 迁移测试覆盖批次原始数量还原、库存流水、做菜记录、购物项、进度和偏好的一次事务提交与重复提交幂等。
+- 运维测试覆盖注销冷静期执行器、滑动窗口限流、SQLite 安全 PRAGMA 和在线一致性备份完整性检查。
+- 微信 code2session 使用官方 HTTPS 地址并通过成功、微信拒绝与网络失败三类模拟测试；真实 AppSecret 尚未接入。
+- 原 94 项 TypeScript 测试继续保留；当前合计 120 项。

@@ -1,0 +1,37 @@
+[project]
+name = "bingxiang-youshu-backend"
+version = "2.0.0a12"
+description = "冰箱有数 2.0 Django API"
+requires-python = ">=3.12"
+dependencies = [
+  "Django==5.2.5",
+  "gunicorn==23.0.0",
+]
+
+[dependency-groups]
+dev = [
+  "coverage==7.10.4",
+  "ruff==0.12.9",
+]
+
+[[tool.uv.index]]
+name = "tuna"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "S", "B"]
+ignore = ["E501", "S101"]
+exclude = ["api/migrations"]
+
+[tool.coverage.run]
+source = ["api", "config"]
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
