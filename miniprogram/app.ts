@@ -1,4 +1,4 @@
-import { appService } from './services/app.service';
+import { unifiedAppService as appService } from './services/unified-app.service';
 
 App({
   onLaunch() {

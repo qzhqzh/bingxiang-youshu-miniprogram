@@ -1,4 +1,5 @@
-import { appService, unitText } from '../../services/app.service';
+import { unitText } from '../../services/app.service';
+import { unifiedAppService as appService } from '../../services/unified-app.service';
 
 Page({
   data: {

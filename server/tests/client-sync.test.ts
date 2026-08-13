@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { LocalV2Repository, type StorageAdapter } from '../../miniprogram/repositories/local/local-v2.repository.js';
 import { CloudSyncService } from '../../miniprogram/services/cloud/cloud-sync.service.js';
 import { CloudCommandService } from '../../miniprogram/services/cloud/cloud-command.service.js';
+import { cloudEnvelopeToSnapshot } from '../../miniprogram/services/cloud/cloud-snapshot.js';
 import {
   RemoteApiError,
   type BootstrapResponse,
@@ -345,6 +346,24 @@ describe('2.0 小程序云命令总线', () => {
     assert.equal((entity?.value as { checked: boolean }).checked, false);
     assert.deepEqual(envelope.conflicts[0]?.serverValue, { id: 'shop-1', checked: false, version: 4 });
     assert.equal(envelope.outbox.find((item) => item.command.mutationId === queued.mutationId)?.state, 'conflict');
+  });
+});
+
+describe('2.0 云端页面快照', () => {
+  it('76. 只读取当前用户偏好与进度，并保留历史购入解锁依据', () => {
+    const local = new LocalV2Repository(new MemoryStorage(), () => 3_000);
+    local.applyChanges('home', [
+      { householdId: 'home', cursor: 1, entityType: 'inventoryMovement', entityId: 'move-1', operation: 'upsert', version: 1, payload: { ingredientId: 'egg', type: 'purchase', quantityDelta: 6 }, serverTime: 1 },
+      { householdId: 'home', cursor: 2, entityType: 'preferences', entityId: 'alice', operation: 'upsert', version: 2, payload: { userId: 'alice', freshnessReminderDays: 5, defaultStorageMode: 'frozen', favoriteRecipeIds: ['steamed_egg'] }, serverTime: 2 },
+      { householdId: 'home', cursor: 3, entityType: 'preferences', entityId: 'bob', operation: 'upsert', version: 2, payload: { userId: 'bob', freshnessReminderDays: 1, defaultStorageMode: 'room' }, serverTime: 3 },
+      { householdId: 'home', cursor: 4, entityType: 'recipeProgress', entityId: 'alice:steamed_egg', operation: 'upsert', version: 2, payload: { userId: 'alice', recipeId: 'steamed_egg', status: 'mastered', cookCount: 3 }, serverTime: 4 },
+      { householdId: 'home', cursor: 5, entityType: 'recipeProgress', entityId: 'bob:steamed_egg', operation: 'upsert', version: 2, payload: { userId: 'bob', recipeId: 'steamed_egg', status: 'locked', cookCount: 0 }, serverTime: 5 },
+    ], 5, 3);
+    const view = cloudEnvelopeToSnapshot(local.envelope('home'), 'alice', 4_000);
+    assert.equal(view.settings.freshnessReminderDays, 5);
+    assert.equal(view.settings.defaultStorageMode, 'frozen');
+    assert.equal(view.progress.find((item) => item.recipeId === 'steamed_egg')?.cookCount, 3);
+    assert.deepEqual(view.meta.purchasedIngredientIds, ['egg']);
   });
 });
 

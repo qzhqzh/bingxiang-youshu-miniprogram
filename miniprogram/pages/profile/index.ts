@@ -1,9 +1,9 @@
-import { appService } from '../../services/app.service';
+import { unifiedAppService as appService } from '../../services/unified-app.service';
 
 Page({
   data: {
     loading: true, error: '', kindCount: 0, masteredCount: 0, monthlyCookCount: 0, recordCount: 0,
-    hasImportBackup: false,
+    hasImportBackup: false, isCloudMode: false,
     settings: null as any, reminderOptions: [1, 2, 3, 5, 7], reminderIndex: 2,
     storageOptions: [{ id: 'room', name: '常温' }, { id: 'chilled', name: '冷藏' }, { id: 'frozen', name: '冷冻' }], storageIndex: 1,
   },
@@ -23,9 +23,11 @@ Page({
   onReminderChange(event: any) { this.saveSettings(Number(event.detail.value), this.data.storageIndex); },
   onStorageChange(event: any) { this.saveSettings(this.data.reminderIndex, Number(event.detail.value)); },
   exportData() {
+    if (this.data.isCloudMode) { wx.showToast({ title: '请到家庭与云同步中导出', icon: 'none' }); return; }
     wx.setClipboardData({ data: appService.exportJson(), success: () => wx.showToast({ title: 'JSON 已复制', icon: 'success' }), fail: () => wx.showToast({ title: '导出失败', icon: 'none' }) });
   },
   importData() {
+    if (this.data.isCloudMode) { wx.showToast({ title: '云端模式无需重复导入', icon: 'none' }); return; }
     wx.getClipboardData({
       success: (result: any) => {
         try {
@@ -56,6 +58,7 @@ Page({
     });
   },
   resetData() {
+    if (this.data.isCloudMode) { wx.showToast({ title: '云端数据不能在这里清空', icon: 'none' }); return; }
     wx.showModal({ title: '清空全部本地数据？', content: '购入批次、做菜记录、食谱进度和购物清单都会被清除；食材与食谱基础库会保留。', confirmText: '确认清空', confirmColor: '#D96B62', success: (result: any) => { if (result.confirm) { appService.reset(); this.load(); wx.showToast({ title: '已清空', icon: 'success' }); } } });
   },
   openShopping() { wx.navigateTo({ url: '/pages/shopping-list/index' }); },

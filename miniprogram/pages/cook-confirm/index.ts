@@ -1,4 +1,4 @@
-import { appService } from '../../services/app.service';
+import { unifiedAppService as appService } from '../../services/unified-app.service';
 
 Page({
   data: { id: '', loading: true, error: '', recipe: null as any, preview: null as any, group: [] as any[], servings: 1, completing: false },

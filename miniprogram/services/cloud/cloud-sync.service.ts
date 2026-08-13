@@ -10,6 +10,7 @@ import type {
   CloudStatusView,
   LocalConflict,
   MigrationSummary,
+  HouseholdEnvelope,
 } from '../../v2/models';
 import { SyncCoordinator } from './sync-coordinator';
 import { CloudCommandService } from './cloud-command.service';
@@ -87,6 +88,13 @@ export class CloudSyncService {
   }
 
   authState(): CloudAuthState { return this.local.auth(); }
+
+  activeEnvelope(): HouseholdEnvelope | null {
+    const auth = this.local.auth();
+    return auth.mode === 'cloud' && auth.activeHouseholdId
+      ? this.local.envelope(auth.activeHouseholdId)
+      : null;
+  }
 
   members(): CloudHouseholdMember[] {
     const householdId = this.requireActiveHousehold();
