@@ -106,7 +106,7 @@ def status_response(payload, status=200):
 @endpoint
 @require_http_methods(["GET"])
 def health(_request):
-    return JsonResponse({"status": "ok", "version": "2.0.0-alpha.12", "database": "sqlite3"})
+    return JsonResponse({"status": "ok", "version": "2.0.0-alpha.13", "database": "sqlite3"})
 
 
 @endpoint

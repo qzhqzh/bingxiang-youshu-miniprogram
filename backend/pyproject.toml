@@ -1,6 +1,6 @@
 [project]
 name = "bingxiang-youshu-backend"
-version = "2.0.0a12"
+version = "2.0.0a13"
 description = "冰箱有数 2.0 Django API"
 requires-python = ">=3.12"
 dependencies = [
